@@ -239,14 +239,14 @@ namespace Chroma
      * The inputs are the wilson line length "len" and the direction "dir", 4 gluon field components (plaq[i]-adj(plaq[i])), and the unit wilson link u
      * The outputs are the O_3 16 componets at 3 direction (x,y,t if dir=z) and O_3 itself.
      */
-
-    int delta(int i, int j)
+/*
+    LatticeReal Delta(int i, int j)
     {
 	if(i==j)
-		delta=1;
+		Delta=1.;
 	else
-		delta=0;
-	return delta;
+		Delta=0.;
+	return Delta;
     }
 
     Double lambda_tree(int rep, int alpha, int beta, int tau, multi1d<Double>)
@@ -254,12 +254,46 @@ namespace Chroma
 	if(rep==3)
 		lambda_tree=(Nc*Nc-1)/sqrt(2)*(p[alpha]*p[alpha]+p[beta]*p[beta]);
 	else
-		lambda_tree=(Nc*Nc-1)/sqrt(2)*(2*(-I)*delta(beta,4)*p[alpha]*p[alpha]);
+		lambda_tree=(Nc*Nc-1)/sqrt(2)*(2*(-cmplx(0,1))*Delta(beta,4)*p[alpha]*p[alpha]);
 	return lambda_tree;	
     }
-
+*/
     
 
+
+    Double G2pt(LatticeColorMatrix u, multi1d<Double> p, multi1d<int> xsrc)
+    {
+	Double G_2pt;
+	//xsrc[mu]?????
+        LatticeColorMatrix A_x, umid, ux=u;
+	ColorMatrix  A_p, A_mp;
+        //A_x=1/(2*cmplx(0,1)*g0)*((u[tau]-adj(u[tau])-1/Nc*trace(u[tau]-adj(u))));
+ 
+        LatticeReal p_dot_x=0.;
+        const Real twopi = 6.283185307179586476925286;
+	LatticeComplex phase, phasem;
+	
+        for(int mu=0;mu<Nd;mu++)
+        {
+        	p_dot_x += LatticeReal(Layout::latticeCoordinate(mu)-xsrc[mu])*twopi*p[mu]/Layout::lattSize()[mu];
+		umid=ux;
+		ux=field(mu, xsrc[mu], umid);
+        }
+        //phase=cmplx(cos(p_dot_x),-sin(p_dot_x));
+	//phasem=cmplx(cos(p_dot_x),sin(p_dot_x));
+
+	double g0=1.0;
+	phase=cmplx(-sin(p_dot_x),-cos(p_dot_x));
+	phasem=cmplx(sin(p_dot_x),-cos(p_dot_x));		
+	A_x=LatticeColorMatrix(1/(2*g0)*((ux-adj(ux)-1/Nc*trace(ux-adj(ux)))));
+        A_p=sum(phase*A_x);
+        A_mp=sum(phasem*A_x);
+	
+        G_2pt=real(trace(A_p*A_mp));
+        return G_2pt;
+    }
+
+/*
     Double Z_RIMOM(int alpha, int beta, int tau, LatticeColorMatrix O, LatticeColorMatrix u,multi2d<Double> p, multi2d<Double> x)
     {
 	LatticeColorMatrix A_x, A_p, A_mp;
@@ -275,7 +309,7 @@ namespace Chroma
 	return Z_RIMOM;
     }
 
-
+*/
     multi2d<LatticeColorMatrix> fun_Opcomp(int len, int dir, multi2d<LatticeColorMatrix> F, LatticeColorMatrix u)
     {
         LatticeColorMatrix un;
@@ -699,6 +733,9 @@ namespace Chroma
                 }
         }
 
+
+	//Double G_2pt(u, multi2d<Double> p, multi2d<Double> xsrc)
+
 	//loop over direction 0,1,2
 	for(int dir = 0; dir < 3; dir++)
         {
@@ -725,417 +762,6 @@ namespace Chroma
 			F[mu][nu]= -F[nu][mu]; //anti-symmetric
                         }
                 }
-
-
-/*
-                multi3d<LatticeColorMatrix> f0;
-                f0.resize(4,Nd,Nd);
-                
-                f0 = 0;
-                
-                for(int mu = 0; mu < Nd; mu++)
-                {
-                        for(int nu = mu+1; nu < Nd; nu++)
-                        {
-			for(int i = 0; i < 4; i++)
-                        {
-                        f0[i][nu][mu] = plane_plaq[i][nu][mu] - adj(plane_plaq[i][nu][mu]);
-			f0[i][nu][mu] *= 1/8.0;
-			f0[i][mu][nu] = -f0[i][nu][mu];
-			}
-                   	}
-                }
-		
-		
-		multi3d<LatticeColorMatrix> OP3;
-		OP3.resize(5,4,4);
-		OP3 = 0;
-                for(int dir=0; dir<3; dir++)
-		{
-			for(int len=0; len<5; len++)
-			{
-				OP3 = fun_Operator3(len, dir, f0, u[dir]);
-                        for(int t = 0; t < Layout::lattSize()[3]; t++)
-                        {
-				multi3d<Double> op_3;
-				op_3.resize(5,4,4);
-				op_3=0;
-                                multi1d<int> tCoords;
-                                tCoords.resize(Nd);
-                                tCoords[3] = t;
-                                for(int x = 0; x < Layout::lattSize()[0];x++)
-                                  for(int y = 0; y < Layout::lattSize()[1];y++)
-                                    for(int Z = 0; Z < Layout::lattSize()[2];Z++)
-                                        {
-                                                tCoords[0] = x;
-                                                tCoords[1] = y;
-                                                tCoords[2] = Z;
-						for(int k = 0; k<5;k++)
-						for(int i = 0; i<4;i++)
-						for(int j = 0; j<4;j++)
-						{
-                                                        op_3[k][i][j] += real(trace(peekSite(OP3[k][i][j], tCoords)));
-						}
-
-
-                                        }
-				for(int k = 0; k<5;k++)
-				for(int i = 0; i<4;i++)
-				for(int j = 0; j<4;j++)
-				{
-                                	QDPIO::cout <<"Op0123   dir="<< dir << "  len="<< len <<"  t="<<  t <<"  subdir="<< k <<"  p1="<< i <<"  p2="<< j <<"  "<< op_3[k][i][j] <<std::endl;
-				}
-			}
-
-			}
-		}
-*/		
-
-/*
-
-		LatticeColorMatrix Op0, Op1, Op2, Op3, Op4, Op5, Op6, Op7, Op8, Op9, Op10, Op11;
-                
-                
-			Op0 = f0[0][dir][3]*f0[0][dir][3];
-                        Op1 = f0[0][dir][3]*f0[1][dir][3];
-                        Op2 = f0[0][dir][3]*f0[2][dir][3];
-                        Op3 = f0[0][dir][3]*f0[3][dir][3];
-			//Op4 = shift(f0[1][dir][3],FORWARD,dir)*shift(f0[1][dir][3],FORWARD,dir);
-			//Op5 = f0[0][dir][3]*shift(f0[1][dir][3],FORWARD,dir);
-			Op4 = f0[0][dir][3]*u[dir]*shift(u[dir],FORWARD,dir)*shift(shift(f0[0][dir][3],FORWARD,dir),FORWARD,dir)*adj(shift(u[dir],FORWARD,dir))*adj(u[dir]);
-                        Op5 = f0[0][dir][3]*u[dir]*shift(u[dir],FORWARD,dir)*shift(shift(f0[1][dir][3],FORWARD,dir),FORWARD,dir)*adj(shift(u[dir],FORWARD,dir))*adj(u[dir]);
-                        Op6 = f0[0][dir][3]*u[dir]*shift(u[dir],FORWARD,dir)*shift(shift(f0[2][dir][3],FORWARD,dir),FORWARD,dir)*adj(shift(u[dir],FORWARD,dir))*adj(u[dir]);
-                        Op7 = f0[0][dir][3]*u[dir]*shift(u[dir],FORWARD,dir)*shift(shift(f0[3][dir][3],FORWARD,dir),FORWARD,dir)*adj(shift(u[dir],FORWARD,dir))*adj(u[dir]);
-                        Op8 = f0[2][dir][3]*u[dir]*shift(u[dir],FORWARD,dir)*shift(shift(f0[0][dir][3],FORWARD,dir),FORWARD,dir)*adj(shift(u[dir],FORWARD,dir))*adj(u[dir]);
-                        Op9 = f0[2][dir][3]*u[dir]*shift(u[dir],FORWARD,dir)*shift(shift(f0[1][dir][3],FORWARD,dir),FORWARD,dir)*adj(shift(u[dir],FORWARD,dir))*adj(u[dir]);
-                        Op10 = f0[2][dir][3]*u[dir]*shift(u[dir],FORWARD,dir)*shift(shift(f0[2][dir][3],FORWARD,dir),FORWARD,dir)*adj(shift(u[dir],FORWARD,dir))*adj(u[dir]);
-                        Op11 = f0[2][dir][3]*u[dir]*shift(u[dir],FORWARD,dir)*shift(shift(f0[3][dir][3],FORWARD,dir),FORWARD,dir)*adj(shift(u[dir],FORWARD,dir))*adj(u[dir]);
-
-
-
-
-
-                        for(int t = 0; t < Layout::lattSize()[3]; t++)
-                        {
-                                Double op0, op1, op2, op3, op4, op5, op6, op7, op8, op9, op10, op11;
-                                
-                                op0=0;
-                                op1=0;
-                                op2=0;
-                                op3=0;
-                                op4=0;
-                                op5=0;
-                                op6=0;
-                                op7=0;
-				op8=0;
-				op9=0;
-				op10=0;
-				op11=0;
-                                
-                                multi1d<int> tCoords;
-                                tCoords.resize(Nd);
-                                tCoords[3] = t;
-                                for(int x = 0; x < Layout::lattSize()[0];x++)
-                                  for(int y = 0; y < Layout::lattSize()[1];y++)
-                                    for(int Z = 0; Z < Layout::lattSize()[2];Z++)
-                                        {
-                                                tCoords[0] = x;
-                                                tCoords[1] = y;
-                                                tCoords[2] = Z;
-                                                
-                                                        op0 += real(trace(peekSite(Op0, tCoords)));
-                                                        op1 += real(trace(peekSite(Op1, tCoords)));
-                                                        op2 += real(trace(peekSite(Op2, tCoords)));
-                                                        op3 += real(trace(peekSite(Op3, tCoords)));
-                                                        op4 += real(trace(peekSite(Op4, tCoords)));
-                                                        op5 += real(trace(peekSite(Op5, tCoords)));
-                                                        op6 += real(trace(peekSite(Op6, tCoords)));
-                                                        op7 += real(trace(peekSite(Op7, tCoords)));
-                                                        op8 += real(trace(peekSite(Op8, tCoords)));
-                                                        op9 += real(trace(peekSite(Op9, tCoords)));
-                                                        op10 += real(trace(peekSite(Op10, tCoords)));
-                                                        op11 += real(trace(peekSite(Op11, tCoords)));
-
-
-                                                
-                                        }
-                                QDPIO::cout <<"Op0123   "<< dir << "    "<< t <<"  "<< op0 <<"  "<< op1 <<"  "<< op2 <<"  "<< op3 <<"  "<< op4<<"  "<< op5<<"  "<< op6<<"  "<< op7<<"  "<< op8<<"  "<< op9<<"  "<< op10<<"  "<< op11<<std::endl;
-
-                        }//end of t loop
-
-*/
-
-
-		
-/*
-                for(int len = 0; len < mn; len++)
-                {
-
-                	ColorMatrix wl_forward, wl_backward, wl_tem;
-                        multi1d<LatticeColorMatrix> Op;
-                        Op.resize(6);
-                        Op = 0;
-                        for(int t = 0; t < Layout::lattSize()[3]; t++)
-                        {
-                                multi1d<Double> op;
-                                op.resize(6);
-                                op = 0;
-                                multi1d<int> tCoords, tCoordsl;
-				int t_tem;
-                                tCoords.resize(Nd);
-                                tCoordsl.resize(Nd);
-                                tCoords[3] = t;
-                                tCoordsl[3] = t;
-                                for(int x = 0; x < Layout::lattSize()[0];x++)
-                                  for(int y = 0; y < Layout::lattSize()[1];y++)
-                                    for(int Z = 0; Z < Layout::lattSize()[2];Z++)
-                                        {
-                                                tCoordsl[0] = x;
-                                                tCoordsl[1] = y;
-                                                tCoordsl[2] = Z;
-                                                tCoords[0] = x;
-                                                tCoords[1] = y;
-                                                tCoords[2] = Z;
-						wl_forward = 1;
-						wl_backward = 1;
-						
-						for(int k = 0; k < len; k++)
-						{
-							wl_tem = wl_forward;
-							wl_forward = wl_tem*peekSite(u[dir], tCoords);
-							wl_tem = wl_backward;
-							wl_backward = peekSite(adj(u[dir]), tCoords)*wl_tem;
-                                                        t_tem = tCoords[dir];
-                                                        tCoords[dir] = (t_tem+1)%(Layout::lattSize()[dir]);
-						
-						}
-						
-                                                        for(int i=0;i<4; i++)
-                                                        {
-								op[0] += real(trace(peekSite(F[3][i], tCoordsl)*wl_forward*peekSite(F[3][i], tCoords)*wl_backward));
-                                                                op[1] += real(trace(peekSite(F[3][i], tCoordsl)*wl_forward*peekSite(F[dir][i], tCoords)*wl_backward));
-								op[2] += real(trace(peekSite(F[dir][i], tCoordsl)*wl_forward*peekSite(F[dir][i], tCoords)*wl_backward));
-                                                                op[3] += real(trace(peekSite(F[dir][i], tCoordsl)*wl_forward*peekSite(F[dir][i], tCoords)*wl_backward));
-                                                                op[4] += real(trace(peekSite(F[3][i], tCoordsl)*wl_forward*peekSite(F[3][i], tCoords)*wl_backward));
-								if(i==dir || i==3)
-								{op[5] += real(trace(peekSite(F[dir][i], tCoordsl)*wl_forward*peekSite(F[dir][i], tCoords)*wl_backward));}
-                                                        }
-                                                        for(int i=0;i<4; i++)
-                                                        {
-								for(int j=0;j<i;j++)
-								{
-									op[0] -= 0.5*real(trace(peekSite(F[j][i], tCoordsl)*wl_forward*peekSite(F[j][i], tCoords)*wl_backward));
-									op[2] -= 0.5*real(trace(peekSite(F[j][i], tCoordsl)*wl_forward*peekSite(F[j][i], tCoords)*wl_backward));
-								}
-							}
-
-                                        }
-                                QDPIO::cout <<"Op   "<< dir << "  " << len <<"  "<< t <<"  "<< op[0] <<"  "<< op[1] <<"  "<< op[2] <<"  "<< op[3] <<"  "<< op[4]<<"  "<< op[5]<< std::endl;
-
-                        }//end of t loop
-		}//end of len loop
-                
-*/
-
-		
-		// Obtain the F_21 at t=8, y=12, z=12 along x direction
-                std::vector<Double> VecFmnre, VecFmnim;
-                for(int x = 0; x < Layout::lattSize()[0]; x++)
-                {
-                        Double fmnre = 0, fmnim = 0;
-                        multi1d<int> fCoords;
-                        fCoords.resize(Nd);
-                        fCoords[3] = 8;
-                        fCoords[0] = x;
-                        fCoords[1] = 12;
-                        fCoords[2] = 12;
-                        fmnre = real(trace(peekSite(F[2][1], fCoords)));
-                        fmnim = imag(trace(peekSite(F[2][1], fCoords)));
-                        VecFmnre.push_back(fmnre);
-			VecFmnim.push_back(fmnim);
-                }
-
-		// Print the F_\mu\nu at t=8, y=12, z=12 along x direction
-                for(int x = 0; x < Layout::lattSize()[0]; x++)
-                {
-                       // QDPIO::cout <<"F21   "<< x << "   " << VecFmnre.at(x) << "   " << VecFmnim.at(x) << std::endl;
-
-                }
-
-		// Obtain and print the sum(trace( of F_\mu\nu to check the anti-symmetric.
-                for(int t = 0; t < Layout::lattSize()[3]; t++)
-                {
-                	multi2d<Double> F_sumre, F_sumim; //real part and imaginary part of the sum(trace(F_\mu\nu))
-			F_sumre.resize(Nd,Nd);
-			F_sumim.resize(Nd,Nd);
-			F_sumre = 0;
-                        F_sumim = 0;
-                 	multi1d<int> tCoords;
-                        tCoords.resize(Nd);
-                        tCoords[3] = t;
-                	for(int x = 0; x < Layout::lattSize()[0]; x++)
-                	{
-			 for(int y = 0; y < Layout::lattSize()[0]; y++)
-                	 {
-                          for(int Z = 0; Z < Layout::lattSize()[0]; Z++)
-                          {
-			  	tCoords[0] = x;
-				tCoords[1] = y;
-				tCoords[2] = Z;
-				for(int mu = 0; mu < Nd; mu++)
-                		{
-                        	 for(int nu = 0; nu < Nd; nu++)
-                        	 {
-					F_sumre[mu][nu] += real(trace(peekSite(F[mu][nu], tCoords)));
-					F_sumim[mu][nu] += imag(trace(peekSite(F[mu][nu], tCoords)));
-				 }
-				}	
-			  }	
-			 }
-			}
-                        for(int mu = 0; mu < Nd; mu++)
-                        {
-                        	for(int nu = 0; nu < Nd; nu++)
-                        	{
-					//QDPIO::cout <<"F   "<< t << "   "<< mu << "   " << nu << "   "  << F_sumre[mu][nu] << "   " << F_sumim[mu][nu] << std::endl;
-				}
-			}
-          	}
-
-
-		// loop over the wilson line length len
-		for(int len = 0; len < mn; len++)
-        	{
-			multi1d<LatticeColorMatrix> Op;
-			Op.resize(13);
-			Op = 0;
-			Op = fun_Operator(len, dir, F, u[dir]); //Obtain the operators
-
-
-
-
-                        multi2d<LatticeColorMatrix> Opcomp;
-                        Opcomp.resize(3,Nd);
-                        Opcomp = 0;
-                        Opcomp = fun_Opcomp(len, dir, F, u[dir]); //Obtain the operators components
-
-
-
-			//Calculate and print out the real(trace of the operators
-			for(int t = 0; t < Layout::lattSize()[3]; t++)
-                        {
-                                multi1d<Double> op, opi;
-				op.resize(11);
-				op = 0;
-                                opi.resize(11);
-                                opi = 0;
-
-
-                                multi2d<Double> opcomp;
-                                opcomp.resize(3,Nd);
-                                opcomp = 0;
-
-
-                                multi1d<int> tCoords;
-                                tCoords.resize(Nd);
-                                tCoords[3] = t;
-                                for(int x = 0; x < Layout::lattSize()[0];x++)
-                                  for(int y = 0; y < Layout::lattSize()[1];y++)
-                                    for(int Z = 0; Z < Layout::lattSize()[2];Z++)
-                                        {
-                                                tCoords[0] = x;
-                                                tCoords[1] = y;
-                                                tCoords[2] = Z;
-						for(int i = 0; i < 11;i++)
-						{
-                                                	op[i] += real(trace(peekSite(Op[i], tCoords)));
-							opi[i] += imag(trace(peekSite(Op[i], tCoords)));
-						}
-
-						for(int k = 0; k < 3; k++)
-						{
-                                                for(int l = 0; l < 4; l++)
-                                                {
-                                                        opcomp[k][l] += real(trace(peekSite(Opcomp[k][l], tCoords)));
-                                                }
-						}
-
-					}
-				/*
-                		for(int l = 0; l < 4; l++)
-                		{
-                        		QDPIO::cout <<"Opcomp_zz   "<< dir << "  " << len <<"  "<< t <<"  "<< l <<"  "<< opcomp[0][l]<<std::endl;
-                        		QDPIO::cout <<"Opcomp_tz   "<< dir << "  " << len <<"  "<< t <<"  "<< l <<"  "<< opcomp[1][l]<<std::endl;
-                        		QDPIO::cout <<"Opcomp_tt   "<< dir << "  " << len <<"  "<< t <<"  "<< l <<"  "<< opcomp[2][l]<<std::endl;
-
-                		}*/
-
-
-//				QDPIO::cout <<"Op   "<< dir << "  " << len <<"  "<< t <<"  "<< op[0] <<"  "<< op[1] <<"  "<< op[2] <<"  "<< op[3] <<"  "<< op[4]<<"  "<< op[5]<< "  "<< op[6]<<"  "<< op[7]<<"  "<< op[8]<<"  "<< op[9]<<"  "<< op[10]<<"  "<< op[11]<<"  "<< op[12]<<std::endl;
-				QDPIO::cout <<"O0ZF   "<< dir << "  " << len <<"  "<< t <<"  "<< op[0] <<"  "<< opi[0]<<std::endl;
-                                QDPIO::cout <<"O1ZF   "<< dir << "  " << len <<"  "<< t <<"  "<< op[1] <<"  "<< opi[1]<<std::endl;
-                                QDPIO::cout <<"O2ZF   "<< dir << "  " << len <<"  "<< t <<"  "<< op[2] <<"  "<< opi[2]<<std::endl;
-                                QDPIO::cout <<"O3ZF   "<< dir << "  " << len <<"  "<< t <<"  "<< op[3] <<"  "<< opi[3]<<std::endl;
-                                QDPIO::cout <<"OIB    "<< dir << "  " << len <<"  "<< t <<"  "<< op[4] <<"  "<< opi[4]<<std::endl;
-                                QDPIO::cout <<"O1JZ   "<< dir << "  " << len <<"  "<< t <<"  "<< op[5] <<"  "<< opi[5]<<std::endl;
-                                QDPIO::cout <<"O2JZ   "<< dir << "  " << len <<"  "<< t <<"  "<< op[6] <<"  "<< opi[6]<<std::endl;
-                                QDPIO::cout <<"O3JZ   "<< dir << "  " << len <<"  "<< t <<"  "<< op[7] <<"  "<< opi[7]<<std::endl;
-                                QDPIO::cout <<"O1hJZ  "<< dir << "  " << len <<"  "<< t <<"  "<< op[8] <<"  "<< opi[8]<<std::endl;
-                                QDPIO::cout <<"O2hJZ  "<< dir << "  " << len <<"  "<< t <<"  "<< op[9] <<"  "<< opi[9]<<std::endl;
-                                QDPIO::cout <<"O3hJZ  "<< dir << "  " << len <<"  "<< t <<"  "<< op[10] <<"  "<< opi[10]<<std::endl;
-				
-			}//end of t loop
-		}//end of len loop
-
-
-
-
-
-
-       /* 
-                for(int len = 1; len < 2; len++)
-                {
-                        multi1d<LatticeColorMatrix> Op;
-                        Op.resize(6);
-                        Op = 0;
-                        for(int t = 0; t < Layout::lattSize()[3]; t++)
-                        {
-                                multi1d<Double> op;
-                                op.resize(6);
-                                op = 0;
-                                multi1d<int> tCoords, tCoords1, tCoords2;
-                                tCoords.resize(Nd);
-				tCoords1.resize(Nd);
-				tCoords2.resize(Nd);
-                                tCoords[3] = t;
-				tCoords1[3] = t;
-				tCoords2[3] = t;
-                                for(int x = 0; x < Layout::lattSize()[0];x++)
-                                  for(int y = 0; y < Layout::lattSize()[1];y++)
-                                    for(int Z = 0; Z < Layout::lattSize()[2];Z++)
-                                        {
-                                                tCoords[0] = x;
-                                                tCoords[1] = y;
-                                                tCoords[2] = Z;
-						tCoords1[0] = (x+1)%(Layout::lattSize()[0]);
-                                                tCoords1[1] = y;
-                                                tCoords1[2] = Z;
-                                                tCoords2[0] = (x+2)%(Layout::lattSize()[0]);
-                                                tCoords2[1] = y;
-                                                tCoords2[2] = Z;
-                                                
-                					for(int i=0;i<4; i++)
-                					{
-                        					op[1] += real(trace(peekSite(F[3][i], tCoords)*peekSite(u[0], tCoords)*peekSite(F[0][i], tCoords1)*peekSite(adj(u[0]), tCoords)));
-								op[2] += real(trace(peekSite(F[3][i], tCoords)*peekSite(u[0], tCoords)*peekSite(u[0], tCoords1)*peekSite(F[0][i], tCoords2)*peekSite(adj(u[0]), tCoords1)*peekSite(adj(u[0]), tCoords)));;
-               				 		}
-                                        }
-                                QDPIO::cout <<"Op   "<< 0 << "  " << len <<"  "<< t <<"  "<< op[0] <<"  "<< op[1] <<"  "<< op[2] <<"  "<< op[3] <<"  "<< op[4]<<"  "<< op[5]<< std::endl;
-
-                        }//end of t loop
-                }//end of len loop
-	*/
-
 
 
 	}//end of dir loop
