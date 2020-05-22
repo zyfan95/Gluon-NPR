@@ -261,9 +261,9 @@ namespace Chroma
     
 
 
-    Double G2pt(LatticeColorMatrix u, multi1d<Double> p, multi1d<int> xsrc)
+    Complex G2pt(LatticeColorMatrix u, multi1d<Double> p, multi1d<int> xsrc)
     {
-	Double G_2pt;
+	Complex G_2pt;
 	//xsrc[mu]?????
         LatticeColorMatrix A_x, umid, ux=u;
 	ColorMatrix  A_p, A_mp;
@@ -282,14 +282,24 @@ namespace Chroma
         //phase=cmplx(cos(p_dot_x),-sin(p_dot_x));
 	//phasem=cmplx(cos(p_dot_x),sin(p_dot_x));
 
+	multi1d<int> tCoords;
+        tCoords.resize(Nd);
+	tCoords[0] = 1;
+	tCoords[1] = 1;
+	tCoords[2] = 1;
+	tCoords[3] = 1;
+	Real pdotx=0.;
+	pdotx=peekSite(p_dot_x, tCoords);	
+	QDPIO::cout <<"p_dot_x   "<< pdotx <<std::endl;	
+
 	double g0=1.0;
 	phase=cmplx(-sin(p_dot_x),-cos(p_dot_x));
 	phasem=cmplx(sin(p_dot_x),-cos(p_dot_x));		
-	A_x=LatticeColorMatrix(1/(2*g0)*((ux-adj(ux)-1/Nc*trace(ux-adj(ux)))));
+	A_x=1/(2*g0)*((ux-adj(ux)-1/Nc*trace(ux-adj(ux))));
         A_p=sum(phase*A_x);
         A_mp=sum(phasem*A_x);
 	
-        G_2pt=real(trace(A_p*A_mp));
+        G_2pt=trace(A_p*A_mp);
         return G_2pt;
     }
 
@@ -735,7 +745,31 @@ namespace Chroma
 
 
 	//Double G_2pt(u, multi2d<Double> p, multi2d<Double> xsrc)
+	
+	multi1d<Double> p; 
+	multi1d<int> xsrc;
+	p.resize(Nd);
+	xsrc.resize(Nd);
+	p=0;
+	xsrc=0;
+	Complex GL2pt;
 
+	for(int i = 0; i < 5; i++)
+        	for(int j = 0; j < 5; j++)
+			for(int k = 0; k < 5; k++)
+			for(int l = 0; l < 10; l++)
+			{
+				p[0]=i;
+				p[1]=j;
+				p[2]=k;
+				p[3]=l;
+				xsrc[0]=16;
+				xsrc[1]=16;
+				xsrc[2]=16;
+				xsrc[3]=32;
+				GL2pt=G2pt(u[0], p, xsrc);	
+				QDPIO::cout <<"G2pt   "<< i << "  " << j <<"  "<< k <<"  "<< l <<"  "<< real(GL2pt) << "  " << imag(GL2pt) <<std::endl;
+			}
 	//loop over direction 0,1,2
 	for(int dir = 0; dir < 3; dir++)
         {
