@@ -261,23 +261,34 @@ namespace Chroma
     
 
 
-    Complex G2pt(LatticeColorMatrix u, multi1d<Double> p, multi1d<int> xsrc)
+    Complex G2pt(int Mu, int Nu, LatticeColorMatrix u, LatticeColorMatrix u1,  multi1d<Double> p, multi1d<int> xsrc)
     {
 	Complex G_2pt;
 	//xsrc[mu]?????
-        LatticeColorMatrix A_x, umid, ux=u;
+        LatticeColorMatrix A_x, umid, ux=u, ux1=u1;
 	ColorMatrix  A_p, A_mp;
         //A_x=1/(2*cmplx(0,1)*g0)*((u[tau]-adj(u[tau])-1/Nc*trace(u[tau]-adj(u))));
  
-        LatticeReal p_dot_x=0.;
+        LatticeReal p_dot_x=0.,  p_dot_x1=0.;
+
         const Real twopi = 6.283185307179586476925286;
 	LatticeComplex phase, phasem;
 	
         for(int mu=0;mu<Nd;mu++)
         {
-        	p_dot_x += LatticeReal(Layout::latticeCoordinate(mu)-xsrc[mu])*twopi*p[mu]/Layout::lattSize()[mu];
+		if(mu==Mu)
+			p_dot_x += LatticeReal(Layout::latticeCoordinate(mu)+1/2-xsrc[mu])*twopi*p[mu]/Layout::lattSize()[mu];
+		else
+			p_dot_x += LatticeReal(Layout::latticeCoordinate(mu)-xsrc[mu])*twopi*p[mu]/Layout::lattSize()[mu];
+                if(mu==Nu)
+                        p_dot_x1 += LatticeReal(Layout::latticeCoordinate(mu)+1/2-xsrc[mu])*twopi*p[mu]/Layout::lattSize()[mu];
+		else
+        		p_dot_x1 += LatticeReal(Layout::latticeCoordinate(mu)-xsrc[mu])*twopi*p[mu]/Layout::lattSize()[mu];
 		umid=ux;
 		ux=field(mu, xsrc[mu], umid);
+                umid=ux1;
+                ux1=field(mu, xsrc[mu], umid);
+
         }
         //phase=cmplx(cos(p_dot_x),-sin(p_dot_x));
 	//phasem=cmplx(cos(p_dot_x),sin(p_dot_x));
@@ -294,9 +305,10 @@ namespace Chroma
 
 	double g0=1.0;
 	phase=cmplx(-sin(p_dot_x),-cos(p_dot_x));
-	phasem=cmplx(sin(p_dot_x),-cos(p_dot_x));		
+	phasem=cmplx(sin(p_dot_x1),-cos(p_dot_x1));		
 	A_x=1/(2*g0)*((ux-adj(ux)-1/Nc*trace(ux-adj(ux))));
         A_p=sum(phase*A_x);
+	A_x=1/(2*g0)*((ux1-adj(ux1)-1/Nc*trace(ux1-adj(ux1))));
         A_mp=sum(phasem*A_x);
 	
         G_2pt=trace(A_p*A_mp);
@@ -763,12 +775,17 @@ namespace Chroma
 				p[1]=j;
 				p[2]=k;
 				p[3]=l;
-				xsrc[0]=16;
-				xsrc[1]=16;
-				xsrc[2]=16;
-				xsrc[3]=32;
-				GL2pt=G2pt(u[0], p, xsrc);	
-				QDPIO::cout <<"G2pt   "<< i << "  " << j <<"  "<< k <<"  "<< l <<"  "<< real(GL2pt) << "  " << imag(GL2pt) <<std::endl;
+				xsrc[0]=0;
+				xsrc[1]=0;
+				xsrc[2]=0;
+				xsrc[3]=0;
+				for(int mu = 0; mu < Nd; mu++)
+				for(int nu = 0; nu < Nd; nu++)
+				{
+					GL2pt=G2pt(mu, nu, u[mu], u[nu], p, xsrc);
+					QDPIO::cout <<"G2pt   "<< mu << "  " << nu << "  "<< i << "  " << j <<"  "<< k <<"  "<< l <<"  "<< real(GL2pt) << "  " << imag(GL2pt) <<std::endl;
+				}
+
 			}
 	//loop over direction 0,1,2
 	for(int dir = 0; dir < 3; dir++)
