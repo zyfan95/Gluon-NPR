@@ -271,8 +271,51 @@ namespace Chroma
         return A_x;
     }
 
+    LatticeReal pdotx(int Mu, multi1d<int> p, multi1d<int> xsrc)
+    {
 
-    Complex G2pt(int Mu, int Nu, LatticeColorMatrix u, LatticeColorMatrix u1,  multi1d<Double> p, multi1d<int> xsrc)
+	LatticeReal p_dot_x=0., p_shift=0.5;
+        const Real twopi = 6.283185307179586476925286;
+
+        clock_t t1, t2, t3, t4;
+
+        //t1=clock();
+
+    	multi1d<LatticeInteger> my_coord(Nd);
+    	for (int mu=0; mu < Nd; ++mu)
+      	  my_coord[mu] = Layout::latticeCoordinate(mu);
+
+        for(int mu=0;mu<Nd;mu++)
+        {
+		t1=clock();
+                if(mu==Mu)
+                        p_dot_x += LatticeReal(my_coord[mu]+p_shift)*twopi*Real(p[mu])/Layout::lattSize()[mu];
+                else
+                        p_dot_x += LatticeReal(my_coord[mu])*twopi*Real(p[mu])/Layout::lattSize()[mu];
+		t2=clock();
+		QDPIO::cout <<"t_pdotx   "<< (t2-t1) <<std::endl;
+	}
+        //t2=clock();
+        //QDPIO::cout <<"t_pdotx   "<< t2-t1 <<std::endl;
+
+	t3=clock();
+        multi1d<int> tCoords;
+        tCoords.resize(Nd);
+        tCoords[0] = 1;
+        tCoords[1] = 1;
+        tCoords[2] = 1;
+        tCoords[3] = 1;
+        Real pdotx=0.;
+        pdotx=peekSite(p_dot_x, tCoords);
+        QDPIO::cout <<"p_dot_x   "<< pdotx <<std::endl;
+	t4=clock();
+	QDPIO::cout <<"pdotx print  "<< (t4-t3) <<std::endl;
+	return p_dot_x;
+
+    }
+
+
+    Complex G2pt(int Mu, int Nu, LatticeReal p_dot_x, LatticeReal p_dot_x1, LatticeColorMatrix u, LatticeColorMatrix u1,  multi1d<int> p, multi1d<int> xsrc)
     {
 	Complex G_2pt;
 	//xsrc[mu]?????
@@ -280,7 +323,7 @@ namespace Chroma
 	ColorMatrix  A_p, A_mp;
         //A_x=1/(2*cmplx(0,1)*g0)*((u[tau]-adj(u[tau])-1/Nc*trace(u[tau]-adj(u))));
  
-        LatticeReal p_dot_x=0.,  p_dot_x1=0., p_shift=0.5;
+        //LatticeReal p_dot_x=0.,  p_dot_x1=0., p_shift=0.5;
 
         const Real twopi = 6.283185307179586476925286;
 	LatticeComplex phase, phasem;
@@ -288,7 +331,7 @@ namespace Chroma
 	clock_t t1, t2, t3, t4;
 
 	t1=clock();
-
+/*
         for(int mu=0;mu<Nd;mu++)
         {
 		if(mu==Mu)
@@ -299,10 +342,10 @@ namespace Chroma
                         p_dot_x1 += LatticeReal(Layout::latticeCoordinate(mu)+p_shift-xsrc[mu])*twopi*p[mu]/Layout::lattSize()[mu];
 		else
         		p_dot_x1 += LatticeReal(Layout::latticeCoordinate(mu)-xsrc[mu])*twopi*p[mu]/Layout::lattSize()[mu];
-		umid=ux;
-		ux=field(mu, xsrc[mu], umid);
-                umid=ux1;
-                ux1=field(mu, xsrc[mu], umid);
+		//umid=ux;
+		//ux=field(mu, xsrc[mu], umid);
+                //umid=ux1;
+                //ux1=field(mu, xsrc[mu], umid);
 
         }
         //phase=cmplx(cos(p_dot_x),-sin(p_dot_x));
@@ -320,7 +363,7 @@ namespace Chroma
 	Real pdotx=0.;
 	pdotx=peekSite(p_dot_x, tCoords);	
 	QDPIO::cout <<"p_dot_x   "<< pdotx <<std::endl;	
-
+*/
 	double g0=1.0;
 	phase=cmplx(-sin(p_dot_x),-cos(p_dot_x));
 	phasem=cmplx(sin(p_dot_x1),-cos(p_dot_x1));		
@@ -441,6 +484,46 @@ namespace Chroma
 			Fn[mu][nu] = -Fn[nu][mu];  //anti-symmetric
                 }
         }
+
+        multi1d<int> tCoords;
+        tCoords.resize(Nd);
+        tCoords[0] = 12;
+        tCoords[1] = 12;
+        tCoords[2] = 12;
+        tCoords[3] = 32;
+        Complex FF=0.;
+
+	if(len==0)
+	{
+        for(int mu = 0; mu < Nd; mu++)
+	for(int nu = 0; nu < Nd; nu++)
+        {
+                for(int Mu = 0; Mu < Nd; Mu++)
+		for(int Nu = 0; Nu < Nd; Nu++)
+                {
+		
+        		//FF=trace(peekSite(F[mu][nu]*F[Mu][Nu], tCoords));
+			FF=trace(sum(F[mu][nu]*F[Mu][Nu]));
+			QDPIO::cout <<"FF   "<< len << "  "<< mu << "  "<< nu << "  "<<  Mu << "  "<< Nu << "  "<< real(FF) << "  "<< imag(FF) <<std::endl;			
+                }
+
+        }
+	}
+	else
+	{
+        for(int mu = 0; mu < Nd; mu++)
+        for(int nu = 0; nu < Nd; nu++)
+        {
+                for(int Mu = 0; Mu < Nd; Mu++)
+                for(int Nu = 0; Nu < Nd; Nu++)
+                {
+
+                        FF=trace(sum(Fn[mu][nu]*un*Fn[Mu][Nu]*adj(un)));
+                        QDPIO::cout <<"FF   "<< len << "  "<< mu << "  "<< nu << "  "<<  Mu << "  "<< Nu << "  "<< real(FF) << "  "<< imag(FF) <<std::endl;
+                }
+
+        }
+	}
 
 /*
         LatticeColorMatrix um;
@@ -790,10 +873,56 @@ namespace Chroma
                 }
         }
 
+
+                QDPIO::cout << "Finding F" << std::endl;
+                int mn = 11; //maximum wilson length
+                /** Find F_{n,munu} **/
+                multi2d<LatticeColorMatrix> F, Fn;
+                F.resize(Nd,Nd);
+                Fn.resize(Nd,Nd);
+                F = 0;
+                Fn = 0;
+
+		// Calculate the F
+		
+                for(int mu = 0; mu < Nd; mu++)
+                {
+                        for(int nu = mu+1; nu < Nd; nu++)
+                        {
+                        for(int i = 0; i < 4; i++)
+                        {
+                                F[nu][mu] += plane_plaq[i][nu][mu] - adj(plane_plaq[i][nu][mu]);
+                        }
+                        F[nu][mu] *= 1/8.0;
+                        F[mu][nu]= -F[nu][mu]; //anti-symmetric
+                        }
+                }
+
+
 	//Ax(int Mu, LatticeColorMatrix u)
 	LatticeColorMatrix A_x;
 	for(int mu = 0; mu < Nd; mu++)
         {
+	    for(int len = 0; len < 11; len++)	
+	    {	
+		multi1d<LatticeColorMatrix> Op;
+                Op.resize(13);
+                Op = 0;
+                Op = fun_Operator(len, mu, F, u[mu]); //Obtain the operators
+
+
+        	QDPIO::cout <<"OZF0   "<< mu  << "  "<< trace(sum(Op[0])) <<std::endl;
+		QDPIO::cout <<"O2JZ   "<< mu  << "  "<< trace(sum(Op[6])) <<std::endl;
+	    }
+/*
+                        for(int i = 0; i < Nc; i++)
+                        for(int j = 0; j < Nc; j++)
+                        {
+				QDPIO::cout <<"OZF0   "<< mu << "  "<< i << "  "<< j << "  "<< sum(Op[0]).elem().elem().elem(i,j).real() << "  "<< sum(Op[0]).elem().elem().elem(i,j).imag() <<std::endl;                                                                
+				QDPIO::cout <<"O2JZ   "<< mu << "  "<< i << "  "<< j << "  "<< sum(Op[6]).elem().elem().elem(i,j).real() << "  "<< sum(Op[6]).elem().elem().elem(i,j).imag() <<std::endl;
+			}
+*/
+
 		A_x=Ax(mu,u[mu]);
 		multi1d<int> tCoords;
         	tCoords.resize(Nd);
@@ -821,18 +950,38 @@ namespace Chroma
 
 	//Double G_2pt(u, multi2d<Double> p, multi2d<Double> xsrc)
 	
-	multi1d<Double> p; 
+	multi1d<int> p; 
 	multi1d<int> xsrc;
 	p.resize(Nd);
 	xsrc.resize(Nd);
 	p=0;
 	xsrc=0;
 	Complex GL2pt;
+	
+	int pmax=3;
+	multi5d<LatticeReal> p_dot_x;
+	p_dot_x.resize(Nd,2*pmax+1,2*pmax+1,2*pmax+1,2*pmax+1);
+	for(int mu = 0; mu < Nd; mu++)
+	for(int i = -pmax; i < pmax+1; i++)
+	for(int j = -pmax; j < pmax+1; j++)
+	for(int k = -pmax; k < pmax+1; k++)
+	for(int l = -pmax; l < pmax+1; l++)
+	{
+                p[0]=i;
+                p[1]=j;
+                p[2]=k;
+                p[3]=l;
+                xsrc[0]=0;
+                xsrc[1]=0;
+                xsrc[2]=0;
+                xsrc[3]=0;
+		p_dot_x[mu][i+pmax][j+pmax][k+pmax][l+pmax]=pdotx(mu, p, xsrc);
+	}
 
-	for(int i = -2; i < 3; i++)
-        	for(int j = -2; j < 3; j++)
-			for(int k = -2; k < 3; k++)
-			for(int l = -2; l < 3; l++)
+	for(int i = -3; i < 4; i++)
+        	for(int j = -3; j < 4; j++)
+			for(int k = -3; k < 4; k++)
+			for(int l = -3; l < 4; l++)
 			{
 				p[0]=i;
 				p[1]=j;
@@ -845,7 +994,7 @@ namespace Chroma
 				for(int mu = 0; mu < Nd; mu++)
 				for(int nu = 0; nu < Nd; nu++)
 				{
-					GL2pt=G2pt(mu, nu, u[mu], u[nu], p, xsrc);
+					GL2pt=G2pt(mu, nu, p_dot_x[mu][i+pmax][j+pmax][k+pmax][l+pmax], p_dot_x[nu][i+pmax][j+pmax][k+pmax][l+pmax], u[mu], u[nu], p, xsrc);
 					QDPIO::cout <<"G2pt   "<< mu << "  " << nu << "  "<< i << "  " << j <<"  "<< k <<"  "<< l <<"  "<< real(GL2pt) << "  " << imag(GL2pt) <<std::endl;
 				}
 
