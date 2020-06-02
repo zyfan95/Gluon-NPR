@@ -5,6 +5,7 @@
 #include <iostream>
 #include <string>
 #include "stdio.h"
+#include <time.h>
 
 
 
@@ -260,6 +261,16 @@ namespace Chroma
 */
     
 
+    LatticeColorMatrix Ax(int Mu, LatticeColorMatrix u)
+    {
+        LatticeColorMatrix A_x;
+
+        double g0=1.0;
+        A_x=1/(2*g0)*((u-adj(u)-1/Nc*trace(u-adj(u))));
+
+        return A_x;
+    }
+
 
     Complex G2pt(int Mu, int Nu, LatticeColorMatrix u, LatticeColorMatrix u1,  multi1d<Double> p, multi1d<int> xsrc)
     {
@@ -269,19 +280,23 @@ namespace Chroma
 	ColorMatrix  A_p, A_mp;
         //A_x=1/(2*cmplx(0,1)*g0)*((u[tau]-adj(u[tau])-1/Nc*trace(u[tau]-adj(u))));
  
-        LatticeReal p_dot_x=0.,  p_dot_x1=0.;
+        LatticeReal p_dot_x=0.,  p_dot_x1=0., p_shift=0.5;
 
         const Real twopi = 6.283185307179586476925286;
 	LatticeComplex phase, phasem;
 	
+	clock_t t1, t2, t3, t4;
+
+	t1=clock();
+
         for(int mu=0;mu<Nd;mu++)
         {
 		if(mu==Mu)
-			p_dot_x += LatticeReal(Layout::latticeCoordinate(mu)+1/2-xsrc[mu])*twopi*p[mu]/Layout::lattSize()[mu];
+			p_dot_x += LatticeReal(Layout::latticeCoordinate(mu)+p_shift-xsrc[mu])*twopi*p[mu]/Layout::lattSize()[mu];
 		else
 			p_dot_x += LatticeReal(Layout::latticeCoordinate(mu)-xsrc[mu])*twopi*p[mu]/Layout::lattSize()[mu];
                 if(mu==Nu)
-                        p_dot_x1 += LatticeReal(Layout::latticeCoordinate(mu)+1/2-xsrc[mu])*twopi*p[mu]/Layout::lattSize()[mu];
+                        p_dot_x1 += LatticeReal(Layout::latticeCoordinate(mu)+p_shift-xsrc[mu])*twopi*p[mu]/Layout::lattSize()[mu];
 		else
         		p_dot_x1 += LatticeReal(Layout::latticeCoordinate(mu)-xsrc[mu])*twopi*p[mu]/Layout::lattSize()[mu];
 		umid=ux;
@@ -292,6 +307,9 @@ namespace Chroma
         }
         //phase=cmplx(cos(p_dot_x),-sin(p_dot_x));
 	//phasem=cmplx(cos(p_dot_x),sin(p_dot_x));
+
+	t2=clock();
+	QDPIO::cout <<"t_pdotx   "<< t2-t1 <<std::endl;
 
 	multi1d<int> tCoords;
         tCoords.resize(Nd);
@@ -310,12 +328,29 @@ namespace Chroma
         A_p=sum(phase*A_x);
 	A_x=1/(2*g0)*((ux1-adj(ux1)-1/Nc*trace(ux1-adj(ux1))));
         A_mp=sum(phasem*A_x);
+
+	t3=clock();
+        QDPIO::cout <<"t_FT   "<< t3-t2 <<std::endl;
+
+	QDPIO::cout <<"A_p   "<< Mu << "  "<< Nu << "  "<< trace(A_p) <<std::endl;
+	QDPIO::cout <<"A_mp   "<< Mu << "  "<< Nu << "  "<< trace(A_mp) <<std::endl;
+	
+                        for(int i = 0; i < Nc; i++)
+                        for(int j = 0; j < Nc; j++)
+                        {
+//                                QDPIO::cout <<"A_p   "<< Mu << "  "<< Nu << "  "<< i << "  "<< j << "  "<< A_p.elem().elem().elem(i,j) <<std::endl;
+				QDPIO::cout <<"A_p   "<< Mu << "  "<< Nu << "  "<< i << "  "<< j << "  "<< A_p.elem().elem().elem(i,j).real() << "  "<< A_p.elem().elem().elem(i,j).imag() <<std::endl;
+//				QDPIO::cout <<"A_mp   "<< Mu << "  "<< Nu << "  "<< i << "  "<< j << "  "<< A_mp.elem().elem().elem(i,j) <<std::endl;		
+				QDPIO::cout <<"A_mp   "<< Mu << "  "<< Nu << "  "<< i << "  "<< j << "  "<< A_mp.elem().elem().elem(i,j).real() << "  "<< A_mp.elem().elem().elem(i,j).imag() <<std::endl;
+                        }
+
 	
         G_2pt=trace(A_p*A_mp);
         return G_2pt;
     }
 
 /*
+
     Double Z_RIMOM(int alpha, int beta, int tau, LatticeColorMatrix O, LatticeColorMatrix u,multi2d<Double> p, multi2d<Double> x)
     {
 	LatticeColorMatrix A_x, A_p, A_mp;
@@ -755,6 +790,34 @@ namespace Chroma
                 }
         }
 
+	//Ax(int Mu, LatticeColorMatrix u)
+	LatticeColorMatrix A_x;
+	for(int mu = 0; mu < Nd; mu++)
+        {
+		A_x=Ax(mu,u[mu]);
+		multi1d<int> tCoords;
+        	tCoords.resize(Nd);
+		for(int x = 11; x < 14; x++)
+		for(int y = 11; y < 14; y++)
+		for(int z = 11; z < 14; z++)
+		for(int t = 31; t < 34; t++)
+		{
+        		tCoords[0] = x;
+        		tCoords[1] = y;
+        		tCoords[2] = z;
+        		tCoords[3] = t;
+        		Real ax=0., axi=0.;
+        		ax=real(trace(peekSite(A_x, tCoords)));
+			axi=imag(trace(peekSite(A_x, tCoords)));
+			for(int i = 0; i < Nc; i++)
+			for(int j = 0; j < Nc; j++)
+			{
+				QDPIO::cout <<"Ax   "<< mu << "  "<< x << "  " << y <<"  "<< z <<"  "<< t <<"  "<< i <<"  "<< j <<"  "<< peekSite(A_x, tCoords).elem().elem().elem(i,j) <<std::endl;
+			}
+        		QDPIO::cout <<"A_x   "<< mu << "  "<< x << "  " << y <<"  "<< z <<"  "<< t <<"  "<< ax <<"  "<< axi <<std::endl;
+		}
+	
+	}
 
 	//Double G_2pt(u, multi2d<Double> p, multi2d<Double> xsrc)
 	
@@ -766,10 +829,10 @@ namespace Chroma
 	xsrc=0;
 	Complex GL2pt;
 
-	for(int i = 0; i < 5; i++)
-        	for(int j = 0; j < 5; j++)
-			for(int k = 0; k < 5; k++)
-			for(int l = 0; l < 10; l++)
+	for(int i = -2; i < 3; i++)
+        	for(int j = -2; j < 3; j++)
+			for(int k = -2; k < 3; k++)
+			for(int l = -2; l < 3; l++)
 			{
 				p[0]=i;
 				p[1]=j;
