@@ -49,7 +49,7 @@ namespace Chroma
 	/*** Implementation of Parameter functions ***/
 	
 	//Set default parameters
-	InlineObParams::InlineObParams() { frequency = 0; radius = 0; srcs.resize(1); }
+	InlineObParams::InlineObParams() { frequency = 0; radius = 0; pmax = 0; srcs.resize(1); }
 	
 	//Read parameters in from xml file
 	InlineObParams::InlineObParams(XMLReader& xml_in, const std::string& path) 
@@ -71,13 +71,14 @@ namespace Chroma
 		//spaced in time. See branch First-O_b for code
 		//that drops this assumtion and takes sources
 		//as the arguments (loc & start/stop times)
-		read(paramtop, "Multi_Src", srcs);
+		//read(paramtop, "Multi_Src", srcs);
 
 		if(paramtop.count("radius") == 1)
 		    read(paramtop, "radius", radius);
 		else
 		    radius = 0;
 
+		read(paramtop, "pmax", pmax);
 		
 		// Possible alternate XML file pattern
 		if (paramtop.count("xml_file") != 0) 
@@ -271,6 +272,9 @@ namespace Chroma
         return A_x;
     }
 
+
+
+
     LatticeReal pdotx(int Mu, multi1d<int> p, multi1d<int> xsrc)
     {
 
@@ -314,6 +318,111 @@ namespace Chroma
 
     }
 
+
+    Complex G3pt(int Mu, int Nu, LatticeColorMatrix u, LatticeColorMatrix u1, LatticeColorMatrix Op, multi1d<int> p, int rmax, int rmax0)
+    {
+        Complex G_3pt=0;
+
+        LatticeColorMatrix A_x, A_x0, umid, ux=u, ux1=u1;
+        ColorMatrix  A_p, A_mp;
+
+        const Real twopi = 6.283185307179586476925286;
+
+        double g0=1.0;
+        A_x=1/(2*g0)*((ux-adj(ux)-1/Nc*trace(ux-adj(ux))));
+        A_x0=1/(2*g0)*((ux1-adj(ux1)-1/Nc*trace(ux1-adj(ux1))));
+        
+        multi1d<int> xcoords, xrcoords, xr0coords;
+        xcoords.resize(Nd);
+	xrcoords.resize(Nd);
+	xr0coords.resize(Nd);
+	
+	Real p_dot_x=0;
+ 
+	for(int x = 0; x < Layout::lattSize()[0]; x++)
+        {
+		QDPIO::cout <<"x   "<< x <<std::endl;
+         	xcoords[0] = x;
+                for(int y = 0; y < Layout::lattSize()[1]; y++)
+                {
+                	xcoords[1] = y;
+                	for(int z = 0; z < Layout::lattSize()[2]; z++)
+                    	{
+				xcoords[2] = z;
+				for(int t = 0; t < Layout::lattSize()[3]; t++)
+				{
+				QDPIO::cout <<"t   "<< t <<std::endl;
+				xcoords[3] = t;
+				for(int dx = 0; dx*dx < 4*rmax*rmax; dx++)
+				for(int dy = 0; dx*dx+dy*dy < 4*rmax*rmax; dy++)	
+				for(int dz = 0; dx*dx+dy*dy+dz*dz < 4*rmax*rmax; dz++)
+				for(int dt = 0; dx*dx+dy*dy+dz*dz+dt*dt < 4*rmax*rmax; dt++)
+				{
+				QDPIO::cout <<"dt   "<< dt <<std::endl;
+                                for(int dx0 = 0; dx0*dx0 < 4*rmax0*rmax0; dx0++)
+                                for(int dy0 = 0; dx0*dx0+dy0*dy0 < 4*rmax0*rmax0; dy0++)
+                                for(int dz0 = 0; dx0*dx0+dy0*dy0+dz0*dz0 < 4*rmax0*rmax0; dz0++)
+				for(int dt0 = 0; dx0*dx0+dy0*dy0+dz0*dz0+dt0*dt0 < 4*rmax0*rmax0; dt0++)
+                                {                        
+					//QDPIO::cout <<"dt0   "<< dt0 <<std::endl;			
+					xrcoords[0] = x+dx-rmax;
+					if(x+dx-rmax<0)
+						xrcoords[0] = Layout::lattSize()[0]+x+dx-rmax;
+					if(x+dx-rmax>Layout::lattSize()[0])
+						xrcoords[0] = -Layout::lattSize()[0]+x+dx-rmax;
+                                        xrcoords[1] = y+dy-rmax;
+                                        if(y+dy-rmax<0)
+                                                xrcoords[1] = Layout::lattSize()[1]+y+dy-rmax;
+                                        if(y+dy-rmax>Layout::lattSize()[1])
+                                                xrcoords[1] = -Layout::lattSize()[1]+y+dy-rmax;
+                                        xrcoords[2] = z+dz-rmax;
+                                        if(z+dz-rmax<0)
+                                                xrcoords[2] = Layout::lattSize()[2]+z+dz-rmax;
+                                        if(z+dz-rmax>Layout::lattSize()[2])
+                                                xrcoords[2] = -Layout::lattSize()[2]+z+dz-rmax;
+					xrcoords[3] = t+dt-rmax;
+                                        if(t+dt-rmax<0)
+                                                xrcoords[3] = Layout::lattSize()[3]+t+dt-rmax;
+                                        if(t+dt-rmax>Layout::lattSize()[3])
+                                                xrcoords[3] = -Layout::lattSize()[3]+t+dt-rmax;
+                                        xr0coords[0] = x+dx0-rmax0;
+                                        if(x+dx0-rmax0<0)
+                                                xr0coords[0] = Layout::lattSize()[0]+x+dx0-rmax0;
+                                        if(x+dx0-rmax0>Layout::lattSize()[0])
+                                                xr0coords[0] = -Layout::lattSize()[0]+x+dx0-rmax0;
+                                        xr0coords[1] = y+dy0-rmax0;
+                                        if(y+dy0-rmax0<0)
+                                                xr0coords[1] = Layout::lattSize()[1]+y+dy0-rmax0;
+                                        if(y+dy0-rmax0>Layout::lattSize()[1])
+                                                xr0coords[1] = -Layout::lattSize()[1]+y+dy0-rmax0;
+                                        xr0coords[2] = z+dz0-rmax0;
+                                        if(z+dz0-rmax0<0)
+                                                xr0coords[2] = Layout::lattSize()[2]+z+dz0-rmax0;
+                                        if(z+dz0-rmax0>Layout::lattSize()[2])
+                                                xr0coords[2] = -Layout::lattSize()[2]+z+dz0-rmax0;
+					xr0coords[3] = t+dt0-rmax0;
+                                        if(t+dt0-rmax0<0)
+                                                xr0coords[3] = Layout::lattSize()[3]+t+dt0-rmax0;
+                                        if(t+dt0-rmax0>Layout::lattSize()[3])
+                                                xr0coords[3] = -Layout::lattSize()[3]+t+dt0-rmax0;
+					p_dot_x=twopi*(p[0]*dx0/Layout::lattSize()[0]+p[1]*dy0/Layout::lattSize()[1]+p[2]*dz0/Layout::lattSize()[2]+p[3]*dt0/Layout::lattSize()[3]);
+					for(int mu=0; mu<Nd; mu++)
+					{	
+						if(mu==Mu)
+							p_dot_x=p_dot_x-twopi*0.5*p[mu]/Layout::lattSize()[mu];
+						if(mu==Nu)
+                                                        p_dot_x=p_dot_x+twopi*0.5*p[mu]/Layout::lattSize()[mu];
+					}
+
+					G_3pt=G_3pt+cmplx(cos(p_dot_x),sin(p_dot_x))*peekSite(trace(Op), xrcoords)*trace(peekSite(A_x, xcoords)*peekSite(A_x0, xr0coords));
+				}
+				}
+				}
+			}
+		}
+	}
+    return G_3pt;
+    }
 
     Complex G2pt(int Mu, int Nu, LatticeReal p_dot_x, LatticeReal p_dot_x1, LatticeColorMatrix u, LatticeColorMatrix u1,  multi1d<int> p, multi1d<int> xsrc)
     {
@@ -381,9 +490,7 @@ namespace Chroma
                         for(int i = 0; i < Nc; i++)
                         for(int j = 0; j < Nc; j++)
                         {
-//                                QDPIO::cout <<"A_p   "<< Mu << "  "<< Nu << "  "<< i << "  "<< j << "  "<< A_p.elem().elem().elem(i,j) <<std::endl;
 				QDPIO::cout <<"A_p   "<< Mu << "  "<< Nu << "  "<< i << "  "<< j << "  "<< A_p.elem().elem().elem(i,j).real() << "  "<< A_p.elem().elem().elem(i,j).imag() <<std::endl;
-//				QDPIO::cout <<"A_mp   "<< Mu << "  "<< Nu << "  "<< i << "  "<< j << "  "<< A_mp.elem().elem().elem(i,j) <<std::endl;		
 				QDPIO::cout <<"A_mp   "<< Mu << "  "<< Nu << "  "<< i << "  "<< j << "  "<< A_mp.elem().elem().elem(i,j).real() << "  "<< A_mp.elem().elem().elem(i,j).imag() <<std::endl;
                         }
 
@@ -518,7 +625,7 @@ namespace Chroma
                 for(int Nu = 0; Nu < Nd; Nu++)
                 {
 
-                        FF=trace(sum(Fn[mu][nu]*un*Fn[Mu][Nu]*adj(un)));
+                        FF=trace(sum(F[mu][nu]*un*Fn[Mu][Nu]*adj(un)));
                         QDPIO::cout <<"FF   "<< len << "  "<< mu << "  "<< nu << "  "<<  Mu << "  "<< Nu << "  "<< real(FF) << "  "<< imag(FF) <<std::endl;
                 }
 
@@ -898,10 +1005,10 @@ namespace Chroma
                         }
                 }
 
-
+/*
 	//Ax(int Mu, LatticeColorMatrix u)
 	LatticeColorMatrix A_x;
-	for(int mu = 0; mu < Nd; mu++)
+	for(int mu = 3; mu < Nd; mu++)
         {
 	    for(int len = 0; len < 11; len++)	
 	    {	
@@ -914,14 +1021,14 @@ namespace Chroma
         	QDPIO::cout <<"OZF0   "<< mu  << "  "<< trace(sum(Op[0])) <<std::endl;
 		QDPIO::cout <<"O2JZ   "<< mu  << "  "<< trace(sum(Op[6])) <<std::endl;
 	    }
-/*
+
                         for(int i = 0; i < Nc; i++)
                         for(int j = 0; j < Nc; j++)
                         {
 				QDPIO::cout <<"OZF0   "<< mu << "  "<< i << "  "<< j << "  "<< sum(Op[0]).elem().elem().elem(i,j).real() << "  "<< sum(Op[0]).elem().elem().elem(i,j).imag() <<std::endl;                                                                
 				QDPIO::cout <<"O2JZ   "<< mu << "  "<< i << "  "<< j << "  "<< sum(Op[6]).elem().elem().elem(i,j).real() << "  "<< sum(Op[6]).elem().elem().elem(i,j).imag() <<std::endl;
 			}
-*/
+
 
 		A_x=Ax(mu,u[mu]);
 		multi1d<int> tCoords;
@@ -947,7 +1054,7 @@ namespace Chroma
 		}
 	
 	}
-
+*/
 	//Double G_2pt(u, multi2d<Double> p, multi2d<Double> xsrc)
 	
 	multi1d<int> p; 
@@ -956,9 +1063,12 @@ namespace Chroma
 	xsrc.resize(Nd);
 	p=0;
 	xsrc=0;
-	Complex GL2pt;
+	Complex GL2pt, GL3pt;
 	
-	int pmax=3;
+	clock_t t1, t2;
+
+	int pmax=params.pmax;
+	QDPIO::cout <<"pmax   "<< pmax <<std::endl;
 	multi5d<LatticeReal> p_dot_x;
 	p_dot_x.resize(Nd,2*pmax+1,2*pmax+1,2*pmax+1,2*pmax+1);
 	for(int mu = 0; mu < Nd; mu++)
@@ -975,13 +1085,19 @@ namespace Chroma
                 xsrc[1]=0;
                 xsrc[2]=0;
                 xsrc[3]=0;
+        	t1=clock();
 		p_dot_x[mu][i+pmax][j+pmax][k+pmax][l+pmax]=pdotx(mu, p, xsrc);
+		t2=clock();
+		QDPIO::cout <<"p_dot_x_p   "<< (t2-t1) <<std::endl;
+		QDPIO::cout <<"p_dot_x_p   "<< (double)(t2-t1)/ CLOCKS_PER_SEC <<std::endl;
 	}
-
-	for(int i = -3; i < 4; i++)
-        	for(int j = -3; j < 4; j++)
-			for(int k = -3; k < 4; k++)
-			for(int l = -3; l < 4; l++)
+	
+	multi1d<LatticeColorMatrix> Op;	
+	Op = fun_Operator(0, 0, F, u[0]);
+	for(int i = -pmax; i < pmax+1; i++)
+        	for(int j = -pmax; j < pmax+1; j++)
+			for(int k = -pmax; k < pmax+1; k++)
+			for(int l = -pmax; l < pmax+1; l++)
 			{
 				p[0]=i;
 				p[1]=j;
@@ -994,8 +1110,18 @@ namespace Chroma
 				for(int mu = 0; mu < Nd; mu++)
 				for(int nu = 0; nu < Nd; nu++)
 				{
+					t1=clock();
 					GL2pt=G2pt(mu, nu, p_dot_x[mu][i+pmax][j+pmax][k+pmax][l+pmax], p_dot_x[nu][i+pmax][j+pmax][k+pmax][l+pmax], u[mu], u[nu], p, xsrc);
 					QDPIO::cout <<"G2pt   "<< mu << "  " << nu << "  "<< i << "  " << j <<"  "<< k <<"  "<< l <<"  "<< real(GL2pt) << "  " << imag(GL2pt) <<std::endl;
+                                       	t2=clock();
+                			QDPIO::cout <<"time_G2pt   "<< (t2-t1) <<std::endl;
+                			QDPIO::cout <<"time_G2pt   "<< (double)(t2-t1)/ CLOCKS_PER_SEC <<std::endl;
+
+					//GL2pt=G2pt(mu, nu, p_dot_x[mu][i+pmax][j+pmax][k+pmax][l+pmax], p_dot_x[nu][i+pmax][j+pmax][k+pmax][l+pmax], u[mu], u[nu], p, xsrc);
+					//QDPIO::cout <<"G2pt   "<< mu << "  " << nu << "  "<< i << "  " << j <<"  "<< k <<"  "<< l <<"  "<< real(GL2pt) << "  " << imag(GL2pt) <<std::endl;
+					//GL3pt=G3pt(mu, nu, u[mu], u[nu], Op[0], p, 13, 13);
+					//QDPIO::cout <<"G3pt   "<< mu << "  " << nu << "  "<< i << "  " << j <<"  "<< k <<"  "<< l <<"  "<< real(GL3pt) << "  " << imag(GL3pt) <<std::endl;
+
 				}
 
 			}
