@@ -49,7 +49,7 @@ namespace Chroma
 	/*** Implementation of Parameter functions ***/
 	
 	//Set default parameters
-	InlineObParams::InlineObParams() { frequency = 0; radius = 0; srcs.resize(1); }
+	InlineObParams::InlineObParams() { frequency = 0; radius = 0; pmax = 0; srcs.resize(1); }
 	
 	//Read parameters in from xml file
 	InlineObParams::InlineObParams(XMLReader& xml_in, const std::string& path) 
@@ -78,6 +78,7 @@ namespace Chroma
 		else
 		    radius = 0;
 
+		read(paramtop, "pmax", pmax);
 		
 		// Possible alternate XML file pattern
 		if (paramtop.count("xml_file") != 0) 
@@ -518,7 +519,7 @@ namespace Chroma
                 for(int Nu = 0; Nu < Nd; Nu++)
                 {
 
-                        FF=trace(sum(Fn[mu][nu]*un*Fn[Mu][Nu]*adj(un)));
+                        FF=trace(sum(F[mu][nu]*un*Fn[Mu][Nu]*adj(un)));
                         QDPIO::cout <<"FF   "<< len << "  "<< mu << "  "<< nu << "  "<<  Mu << "  "<< Nu << "  "<< real(FF) << "  "<< imag(FF) <<std::endl;
                 }
 
@@ -901,7 +902,7 @@ namespace Chroma
 
 	//Ax(int Mu, LatticeColorMatrix u)
 	LatticeColorMatrix A_x;
-	for(int mu = 0; mu < Nd; mu++)
+	for(int mu = 3; mu < Nd; mu++)
         {
 	    for(int len = 0; len < 11; len++)	
 	    {	
@@ -958,7 +959,8 @@ namespace Chroma
 	xsrc=0;
 	Complex GL2pt;
 	
-	int pmax=3;
+	int pmax=params.pmax;
+	QDPIO::cout <<"pmax   "<< pmax <<std::endl;
 	multi5d<LatticeReal> p_dot_x;
 	p_dot_x.resize(Nd,2*pmax+1,2*pmax+1,2*pmax+1,2*pmax+1);
 	for(int mu = 0; mu < Nd; mu++)
@@ -978,10 +980,10 @@ namespace Chroma
 		p_dot_x[mu][i+pmax][j+pmax][k+pmax][l+pmax]=pdotx(mu, p, xsrc);
 	}
 
-	for(int i = -3; i < 4; i++)
-        	for(int j = -3; j < 4; j++)
-			for(int k = -3; k < 4; k++)
-			for(int l = -3; l < 4; l++)
+	for(int i = -pmax; i < pmax+1; i++)
+        	for(int j = -pmax; j < pmax+1; j++)
+			for(int k = -pmax; k < pmax+1; k++)
+			for(int l = -pmax; l < pmax+1; l++)
 			{
 				p[0]=i;
 				p[1]=j;
