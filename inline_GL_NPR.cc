@@ -275,20 +275,23 @@ namespace Chroma
 
 
 
-    LatticeReal pdotx(int Mu, multi1d<int> p, multi1d<int> xsrc)
+    LatticeReal pdotx(int Mu, multi1d<int> p, multi1d<int> xsrc, multi1d<LatticeInteger> my_coord)
     {
 
 	LatticeReal p_dot_x=0., p_shift=0.5;
-        const Real twopi = 6.283185307179586476925286;
+        //const Real twopi = 6.283185307179586476925286;
 
         clock_t t1, t2, t3, t4;
-
-        //t1=clock();
+/*
+        t1=clock();
 
     	multi1d<LatticeInteger> my_coord(Nd);
     	for (int mu=0; mu < Nd; ++mu)
       	  my_coord[mu] = Layout::latticeCoordinate(mu);
 
+	t2=clock();
+	QDPIO::cout <<"t_coord   "<< (t2-t1) <<std::endl;
+*/
         for(int mu=0;mu<Nd;mu++)
         {
 		t1=clock();
@@ -317,6 +320,50 @@ namespace Chroma
 	return p_dot_x;
 
     }
+
+    Complex G3ptnew(int Mu, int Nu, LatticeColorMatrix u, LatticeColorMatrix u1, LatticeColorMatrix Op, multi1d<int> p, int rmax, int rmax0)
+    {
+        Complex G_3pt=0;
+
+        LatticeColorMatrix A_x, A_x0, umid, ux=u, ux1=u1;
+        ColorMatrix  A_p, A_mp;
+
+        const Real twopi = 6.283185307179586476925286;
+
+        double g0=1.0;
+        A_x=1/(2*g0)*((ux-adj(ux)-1/Nc*trace(ux-adj(ux))));
+        A_x0=1/(2*g0)*((ux1-adj(ux1)-1/Nc*trace(ux1-adj(ux1))));
+
+        multi1d<int> xcoords, xrcoords, xr0coords;
+        xcoords.resize(Nd);
+        xrcoords.resize(Nd);
+        xr0coords.resize(Nd);
+
+        Real p_dot_x=0;
+
+        for(int x = 0; x < Layout::lattSize()[0]; x++)
+        {
+                QDPIO::cout <<"x   "<< x <<std::endl;
+                xcoords[0] = x;
+                for(int y = 0; y < Layout::lattSize()[1]; y++)
+                {
+                        xcoords[1] = y;
+                        for(int z = 0; z < Layout::lattSize()[2]; z++)
+                        {
+                                xcoords[2] = z;
+                                for(int t = 0; t < Layout::lattSize()[3]; t++)
+                                {
+                                QDPIO::cout <<"t   "<< t <<std::endl;
+                                xcoords[3] = t;
+     				mask |= Layout::latticeCoordinate(3) == timeslices[t];
+				eta = where(mask, eta, LatticeFermion(zero));                           
+                                }
+                        }
+                }
+        }
+    return G_3pt;
+    }
+
 
 
     Complex G3pt(int Mu, int Nu, LatticeColorMatrix u, LatticeColorMatrix u1, LatticeColorMatrix Op, multi1d<int> p, int rmax, int rmax0)
@@ -434,7 +481,7 @@ namespace Chroma
  
         //LatticeReal p_dot_x=0.,  p_dot_x1=0., p_shift=0.5;
 
-        const Real twopi = 6.283185307179586476925286;
+        //const Real twopi = 6.283185307179586476925286;
 	LatticeComplex phase, phasem;
 	
 	clock_t t1, t2, t3, t4;
@@ -482,7 +529,7 @@ namespace Chroma
         A_mp=sum(phasem*A_x);
 
 	t3=clock();
-        QDPIO::cout <<"t_FT   "<< t3-t2 <<std::endl;
+        QDPIO::cout <<"t_FT   "<< t3-t1 <<std::endl;
 
 	QDPIO::cout <<"A_p   "<< Mu << "  "<< Nu << "  "<< trace(A_p) <<std::endl;
 	QDPIO::cout <<"A_mp   "<< Mu << "  "<< Nu << "  "<< trace(A_mp) <<std::endl;
@@ -1005,7 +1052,7 @@ namespace Chroma
                         }
                 }
 
-/*
+
 	//Ax(int Mu, LatticeColorMatrix u)
 	LatticeColorMatrix A_x;
 	for(int mu = 3; mu < Nd; mu++)
@@ -1021,7 +1068,7 @@ namespace Chroma
         	QDPIO::cout <<"OZF0   "<< mu  << "  "<< trace(sum(Op[0])) <<std::endl;
 		QDPIO::cout <<"O2JZ   "<< mu  << "  "<< trace(sum(Op[6])) <<std::endl;
 	    }
-
+/*
                         for(int i = 0; i < Nc; i++)
                         for(int j = 0; j < Nc; j++)
                         {
@@ -1052,9 +1099,9 @@ namespace Chroma
 			}
         		QDPIO::cout <<"A_x   "<< mu << "  "<< x << "  " << y <<"  "<< z <<"  "<< t <<"  "<< ax <<"  "<< axi <<std::endl;
 		}
-	
+*/	
 	}
-*/
+
 	//Double G_2pt(u, multi2d<Double> p, multi2d<Double> xsrc)
 	
 	multi1d<int> p; 
@@ -1066,6 +1113,11 @@ namespace Chroma
 	Complex GL2pt, GL3pt;
 	
 	clock_t t1, t2;
+	const Real twopi = 6.283185307179586476925286;
+	
+        multi1d<LatticeInteger> my_coord(Nd);
+        for (int mu=0; mu < Nd; ++mu)
+          my_coord[mu] = Layout::latticeCoordinate(mu);
 
 	int pmax=params.pmax;
 	QDPIO::cout <<"pmax   "<< pmax <<std::endl;
@@ -1086,7 +1138,7 @@ namespace Chroma
                 xsrc[2]=0;
                 xsrc[3]=0;
         	t1=clock();
-		p_dot_x[mu][i+pmax][j+pmax][k+pmax][l+pmax]=pdotx(mu, p, xsrc);
+		p_dot_x[mu][i+pmax][j+pmax][k+pmax][l+pmax]=pdotx(mu, p, xsrc, my_coord);
 		t2=clock();
 		QDPIO::cout <<"p_dot_x_p   "<< (t2-t1) <<std::endl;
 		QDPIO::cout <<"p_dot_x_p   "<< (double)(t2-t1)/ CLOCKS_PER_SEC <<std::endl;
