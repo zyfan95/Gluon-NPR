@@ -275,7 +275,7 @@ namespace Chroma
 
 
 
-    LatticeReal pdotx(int Mu, multi1d<int> p, multi1d<int> xsrc, multi1d<LatticeInteger> my_coord)
+    LatticeReal pdotx(multi1d<int> p, multi1d<int> xsrc, multi1d<LatticeInteger> my_coord)
     {
 
 	LatticeReal p_dot_x=0., p_shift=0.5;
@@ -295,12 +295,13 @@ namespace Chroma
         for(int mu=0;mu<Nd;mu++)
         {
 		t1=clock();
-                if(mu==Mu)
-                        p_dot_x += LatticeReal(my_coord[mu]+p_shift)*twopi*Real(p[mu])/Layout::lattSize()[mu];
-                else
-                        p_dot_x += LatticeReal(my_coord[mu])*twopi*Real(p[mu])/Layout::lattSize()[mu];
+                //if(mu==Mu)
+                       // p_dot_x += LatticeReal(my_coord[mu]+p_shift)*twopi*Real(p[mu])/Layout::lattSize()[mu];
+                //else
+                p_dot_x += LatticeReal(my_coord[mu])*twopi*Real(p[mu])/Layout::lattSize()[mu];
 		t2=clock();
 		QDPIO::cout <<"t_pdotx   "<< (t2-t1) <<std::endl;
+	
 	}
         //t2=clock();
         //QDPIO::cout <<"t_pdotx   "<< t2-t1 <<std::endl;
@@ -321,12 +322,13 @@ namespace Chroma
 
     }
 
-    Complex G3ptnew(int Mu, int Nu, LatticeColorMatrix u, LatticeColorMatrix u1, LatticeColorMatrix Op, multi1d<int> p, int rmax, int rmax0)
+    Complex G3ptnew(int Mu, int Nu, LatticeColorMatrix u, LatticeColorMatrix u1, LatticeReal p_dot_x, LatticeColorMatrix Op, multi1d<int> p, int rmax, int rmax0)
     {
         Complex G_3pt=0;
 
-        LatticeColorMatrix A_x, A_x0, umid, ux=u, ux1=u1;
+        LatticeColorMatrix A_x, A_x0, A_x0c, umid, ux=u, ux1=u1;
         ColorMatrix  A_p, A_mp;
+	LatticeColorMatrix Opc;
 
         const Real twopi = 6.283185307179586476925286;
 
@@ -339,7 +341,17 @@ namespace Chroma
         xrcoords.resize(Nd);
         xr0coords.resize(Nd);
 
-        Real p_dot_x=0;
+       	LatticeReal p_shift=0.5;
+	LatticeReal p_dot_x0, p_dot_x1;
+	LatticeInteger mask, mask0;
+	LatticeComplex phase, phasem;
+
+	
+	p_dot_x0 = p_dot_x+LatticeReal(LatticeReal(p_shift)*twopi*Real(p[Mu])/Layout::lattSize()[Mu]);
+        phase=cmplx(-sin(p_dot_x0),-cos(p_dot_x0));
+	
+        p_dot_x1 = p_dot_x+LatticeReal(LatticeReal(p_shift)*twopi*Real(p[Nu])/Layout::lattSize()[Nu]);
+        phasem=cmplx(sin(p_dot_x1),-cos(p_dot_x1));
 
         for(int x = 0; x < Layout::lattSize()[0]; x++)
         {
@@ -355,13 +367,17 @@ namespace Chroma
                                 {
                                 QDPIO::cout <<"t   "<< t <<std::endl;
                                 xcoords[3] = t;
-     				mask |= Layout::latticeCoordinate(3) == timeslices[t];
-				eta = where(mask, eta, LatticeFermion(zero));                           
+     				mask |= (Layout::latticeCoordinate(0)-x)*(Layout::latticeCoordinate(0)-x)+(Layout::latticeCoordinate(1)-y)*(Layout::latticeCoordinate(1)-y)+(Layout::latticeCoordinate(2)-z)*(Layout::latticeCoordinate(2)-z)+(Layout::latticeCoordinate(3)-t)*(Layout::latticeCoordinate(3)-t) <= rmax;
+				Opc = where(mask, Op, LatticeColorMatrix(zero));
+				mask0 |= (Layout::latticeCoordinate(0)-x)*(Layout::latticeCoordinate(0)-x)+(Layout::latticeCoordinate(1)-y)*(Layout::latticeCoordinate(1)-y)+(Layout::latticeCoordinate(2)-z)*(Layout::latticeCoordinate(2)-z)+(Layout::latticeCoordinate(3)-t)*(Layout::latticeCoordinate(3)-t) <= rmax0;
+                                A_x0c = where(mask0, A_x0, LatticeColorMatrix(zero));
+				G_3pt=G_3pt+trace(sum(Opc))*trace(peekSite(phase*A_x, xcoords)*sum(phasem*A_x0c));
                                 }
                         }
                 }
         }
-    return G_3pt;
+
+    	return G_3pt;
     }
 
 
@@ -471,11 +487,610 @@ namespace Chroma
     return G_3pt;
     }
 
+
+    ColorMatrix  G2ptnew(int Mu, multi1d<int> p, LatticeColorMatrix A_x, int rmax)
+    {
+        Complex G_2pt;
+        ColorMatrix  A_p, A_mp;
+
+        clock_t t1, t2, t3, t4;
+
+	Real p_dot_x=0;
+	LatticeComplex AA=0;
+	LatticeColorMatrix A_x1, Amid;
+
+	A_x1=A_x;
+        for(int dx = 1; dx*dx < rmax*rmax; dx++)
+        {
+                Amid=A_x1;
+                A_x1=shift(Amid, BACKWARD, 0);
+                A_x1=shift(Amid, BACKWARD, 1);
+                A_x1=shift(Amid, BACKWARD, 2);
+                A_x1=shift(Amid, BACKWARD, 3);
+        }
+
+        for(int dx = -rmax+1; dx*dx < rmax*rmax; dx++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 0);
+        for(int dy = -rmax+1; dx*dx+dy*dy < rmax*rmax; dy++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 1);
+        for(int dz = -rmax+1; dx*dx+dy*dy+dz*dz < rmax*rmax; dz++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 2);
+        for(int dt = -rmax+1; dx*dx+dy*dy+dz*dz+dt*dt < rmax*rmax; dt++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 3);
+        p_dot_x=twopi*(p[0]*dx/Layout::lattSize()[0]+p[1]*dy/Layout::lattSize()[1]+p[2]*dz/Layout::lattSize()[2]+p[3]*dt/Layout::lattSize()[3]);
+        AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+        }
+        }
+        }
+        }
+
+	G_2pt=sum(AA);
+	return G_2pt;
+/*
+	A_x1=A_x;
+	p_dot_x=0;
+	AA=cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+	
+	for(int dx = 1; dx*dx < rmax*rmax; dx++)
+	{
+		Amid=A_x1;
+		A_x1=shift(Amid, FORWARD, 0);
+		p_dot_x=twopi*(p[0]*dx/Layout::lattSize()[0];
+		AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+	}
+	
+	A_x1=A_x;
+        for(int dx = -1; dx*dx < rmax*rmax; dx--)
+        {
+                Amid=A_x1;
+                A_x1=shift(Amid, BACKWARD, 0);
+                p_dot_x=twopi*(p[0]*dx/Layout::lattSize()[0];
+                AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+        }
+
+	A_x1=A_x;
+        for(int dy = 1; dy*dy < rmax*rmax; dy++)
+        {
+                Amid=A_x1;
+                A_x1=shift(Amid, FORWARD, 1);
+                p_dot_x=twopi*(p[1]*dy/Layout::lattSize()[1];
+                AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+        }
+
+        A_x1=A_x;
+        for(int dy = -1; dy*dy < rmax*rmax; dy--)
+        {
+                Amid=A_x1;
+                A_x1=shift(Amid, BACKWARD, 1);
+                p_dot_x=twopi*(p[1]*dy/Layout::lattSize()[1];
+                AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+        }
+
+        A_x1=A_x;
+        for(int dz = 1; dz*dz < rmax*rmax; dz++)
+        {
+                Amid=A_x1;
+                A_x1=shift(Amid, FORWARD, 2);
+                p_dot_x=twopi*(p[2]*dz/Layout::lattSize()[2];
+                AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+        }
+
+        A_x1=A_x;
+        for(int dz = -1; dz*dz < rmax*rmax; dz--)
+        {
+                Amid=A_x1;
+                A_x1=shift(Amid, BACKWARD, 2);
+                p_dot_x=twopi*(p[2]*dz/Layout::lattSize()[2];
+                AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+        }
+
+        A_x1=A_x;
+        for(int dt = 1; dt*dt < rmax*rmax; dt++)
+        {
+                Amid=A_x1;
+                A_x1=shift(Amid, FORWARD, 3);
+                p_dot_x=twopi*(p[3]*dz/Layout::lattSize()[3];
+                AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+        }
+
+        A_x1=A_x;
+        for(int dt = -1; dt*dt < rmax*rmax; dt--)
+        {
+                Amid=A_x1;
+                A_x1=shift(Amid, BACKWARD, 3);
+                p_dot_x=twopi*(p[3]*dz/Layout::lattSize()[3];
+                AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+        }
+
+
+	A_x1=A_x;
+        for(int dx = 1; dx*dx < rmax*rmax; dx++)
+	{
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 0);
+        for(int dy = 1; dx*dx+dy*dy < rmax*rmax; dy++)
+	{
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 1);
+        for(int dz = 1; dx*dx+dy*dy+dz*dz < rmax*rmax; dz++)
+	{
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 2);
+        for(int dt = 1; dx*dx+dy*dy+dz*dz+dt*dt < rmax*rmax; dt++)
+        {
+	Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 3);
+	p_dot_x=twopi*(p[0]*dx/Layout::lattSize()[0]+p[1]*dy/Layout::lattSize()[1]+p[2]*dz/Layout::lattSize()[2]+p[3]*dt/Layout::lattSize()[3]);
+	AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+	}
+	}
+	}
+	}
+
+        A_x1=A_x;
+        for(int dx = 1; dx*dx < rmax*rmax; dx++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 0);
+        for(int dy = 1; dx*dx+dy*dy < rmax*rmax; dy++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 1);
+        for(int dz = 1; dx*dx+dy*dy+dz*dz < rmax*rmax; dz++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 2);
+        for(int dt = -1; dx*dx+dy*dy+dz*dz+dt*dt < rmax*rmax; dt--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 3);
+        p_dot_x=twopi*(p[0]*dx/Layout::lattSize()[0]+p[1]*dy/Layout::lattSize()[1]+p[2]*dz/Layout::lattSize()[2]+p[3]*dt/Layout::lattSize()[3]);
+        AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+        }
+        }
+        }
+        }
+
+        A_x1=A_x;
+        for(int dx = 1; dx*dx < rmax*rmax; dx++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 0);
+        for(int dy = 1; dx*dx+dy*dy < rmax*rmax; dy++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 1);
+        for(int dz = -1; dx*dx+dy*dy+dz*dz < rmax*rmax; dz--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 2);
+        for(int dt = 1; dx*dx+dy*dy+dz*dz+dt*dt < rmax*rmax; dt++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 3);
+        p_dot_x=twopi*(p[0]*dx/Layout::lattSize()[0]+p[1]*dy/Layout::lattSize()[1]+p[2]*dz/Layout::lattSize()[2]+p[3]*dt/Layout::lattSize()[3]);
+        AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+        }
+        }
+        }
+        }
+
+        A_x1=A_x;
+        for(int dx = 1; dx*dx < rmax*rmax; dx++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 0);
+        for(int dy = 1; dx*dx+dy*dy < rmax*rmax; dy++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 1);
+        for(int dz = -1; dx*dx+dy*dy+dz*dz < rmax*rmax; dz--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 2);
+        for(int dt = -1; dx*dx+dy*dy+dz*dz+dt*dt < rmax*rmax; dt--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 3);
+        p_dot_x=twopi*(p[0]*dx/Layout::lattSize()[0]+p[1]*dy/Layout::lattSize()[1]+p[2]*dz/Layout::lattSize()[2]+p[3]*dt/Layout::lattSize()[3]);
+        AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+        }
+        }
+        }
+        }
+
+        A_x1=A_x;
+        for(int dx = 1; dx*dx < rmax*rmax; dx++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 0);
+        for(int dy = -1; dx*dx+dy*dy < rmax*rmax; dy--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 1);
+        for(int dz = 1; dx*dx+dy*dy+dz*dz < rmax*rmax; dz++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 2);
+        for(int dt = 1; dx*dx+dy*dy+dz*dz+dt*dt < rmax*rmax; dt++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 3);
+        p_dot_x=twopi*(p[0]*dx/Layout::lattSize()[0]+p[1]*dy/Layout::lattSize()[1]+p[2]*dz/Layout::lattSize()[2]+p[3]*dt/Layout::lattSize()[3]);
+        AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+        }
+        }
+        }
+        }
+
+        A_x1=A_x;
+        for(int dx = 1; dx*dx < rmax*rmax; dx++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 0);
+        for(int dy = -1; dx*dx+dy*dy < rmax*rmax; dy--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 1);
+        for(int dz = 1; dx*dx+dy*dy+dz*dz < rmax*rmax; dz++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 2);
+        for(int dt = -1; dx*dx+dy*dy+dz*dz+dt*dt < rmax*rmax; dt--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 3);
+        p_dot_x=twopi*(p[0]*dx/Layout::lattSize()[0]+p[1]*dy/Layout::lattSize()[1]+p[2]*dz/Layout::lattSize()[2]+p[3]*dt/Layout::lattSize()[3]);
+        AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+        }
+        }
+        }
+        }
+
+        A_x1=A_x;
+        for(int dx = 1; dx*dx < rmax*rmax; dx++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 0);
+        for(int dy = -1; dx*dx+dy*dy < rmax*rmax; dy--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 1);
+        for(int dz = -1; dx*dx+dy*dy+dz*dz < rmax*rmax; dz--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 2);
+        for(int dt = 1; dx*dx+dy*dy+dz*dz+dt*dt < rmax*rmax; dt++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 3);
+        p_dot_x=twopi*(p[0]*dx/Layout::lattSize()[0]+p[1]*dy/Layout::lattSize()[1]+p[2]*dz/Layout::lattSize()[2]+p[3]*dt/Layout::lattSize()[3]);
+        AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+        }
+        }
+        }
+        }
+
+        A_x1=A_x;
+        for(int dx = 1; dx*dx < rmax*rmax; dx++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 0);
+        for(int dy = -1; dx*dx+dy*dy < rmax*rmax; dy--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 1);
+        for(int dz = -1; dx*dx+dy*dy+dz*dz < rmax*rmax; dz--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 2);
+        for(int dt = -1; dx*dx+dy*dy+dz*dz+dt*dt < rmax*rmax; dt--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 3);
+        p_dot_x=twopi*(p[0]*dx/Layout::lattSize()[0]+p[1]*dy/Layout::lattSize()[1]+p[2]*dz/Layout::lattSize()[2]+p[3]*dt/Layout::lattSize()[3]);
+        AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+        }
+        }
+        }
+        }
+
+
+        A_x1=A_x;
+        for(int dx = -1; dx*dx < rmax*rmax; dx--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 0);
+        for(int dy = 1; dx*dx+dy*dy < rmax*rmax; dy++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 1);
+        for(int dz = 1; dx*dx+dy*dy+dz*dz < rmax*rmax; dz++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 2);
+        for(int dt = 1; dx*dx+dy*dy+dz*dz+dt*dt < rmax*rmax; dt++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 3);
+        p_dot_x=twopi*(p[0]*dx/Layout::lattSize()[0]+p[1]*dy/Layout::lattSize()[1]+p[2]*dz/Layout::lattSize()[2]+p[3]*dt/Layout::lattSize()[3]);
+        AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+        }
+        }
+        }
+        }
+
+        A_x1=A_x;
+        for(int dx = -1; dx*dx < rmax*rmax; dx--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 0);
+        for(int dy = 1; dx*dx+dy*dy < rmax*rmax; dy++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 1);
+        for(int dz = 1; dx*dx+dy*dy+dz*dz < rmax*rmax; dz++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 2);
+        for(int dt = -1; dx*dx+dy*dy+dz*dz+dt*dt < rmax*rmax; dt--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 3);
+        p_dot_x=twopi*(p[0]*dx/Layout::lattSize()[0]+p[1]*dy/Layout::lattSize()[1]+p[2]*dz/Layout::lattSize()[2]+p[3]*dt/Layout::lattSize()[3]);
+        AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+        }
+        }
+        }
+        }
+
+        A_x1=A_x;
+        for(int dx = -1; dx*dx < rmax*rmax; dx--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 0);
+        for(int dy = 1; dx*dx+dy*dy < rmax*rmax; dy++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 1);
+        for(int dz = -1; dx*dx+dy*dy+dz*dz < rmax*rmax; dz--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 2);
+        for(int dt = 1; dx*dx+dy*dy+dz*dz+dt*dt < rmax*rmax; dt++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 3);
+        p_dot_x=twopi*(p[0]*dx/Layout::lattSize()[0]+p[1]*dy/Layout::lattSize()[1]+p[2]*dz/Layout::lattSize()[2]+p[3]*dt/Layout::lattSize()[3]);
+        AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+        }
+        }
+        }
+        }
+
+        A_x1=A_x;
+        for(int dx = -1; dx*dx < rmax*rmax; dx--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 0);
+        for(int dy = 1; dx*dx+dy*dy < rmax*rmax; dy++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 1);
+        for(int dz = -1; dx*dx+dy*dy+dz*dz < rmax*rmax; dz--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 2);
+        for(int dt = -1; dx*dx+dy*dy+dz*dz+dt*dt < rmax*rmax; dt--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 3);
+        p_dot_x=twopi*(p[0]*dx/Layout::lattSize()[0]+p[1]*dy/Layout::lattSize()[1]+p[2]*dz/Layout::lattSize()[2]+p[3]*dt/Layout::lattSize()[3]);
+        AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+        }
+        }
+        }
+        }
+
+        A_x1=A_x;
+        for(int dx = -1; dx*dx < rmax*rmax; dx--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 0);
+        for(int dy = -1; dx*dx+dy*dy < rmax*rmax; dy--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 1);
+        for(int dz = 1; dx*dx+dy*dy+dz*dz < rmax*rmax; dz++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 2);
+        for(int dt = 1; dx*dx+dy*dy+dz*dz+dt*dt < rmax*rmax; dt++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 3);
+        p_dot_x=twopi*(p[0]*dx/Layout::lattSize()[0]+p[1]*dy/Layout::lattSize()[1]+p[2]*dz/Layout::lattSize()[2]+p[3]*dt/Layout::lattSize()[3]);
+        AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+        }
+        }
+        }
+        }
+
+        A_x1=A_x;
+        for(int dx = -1; dx*dx < rmax*rmax; dx--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 0);
+        for(int dy = -1; dx*dx+dy*dy < rmax*rmax; dy--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 1);
+        for(int dz = 1; dx*dx+dy*dy+dz*dz < rmax*rmax; dz++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 2);
+        for(int dt = -1; dx*dx+dy*dy+dz*dz+dt*dt < rmax*rmax; dt--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 3);
+        p_dot_x=twopi*(p[0]*dx/Layout::lattSize()[0]+p[1]*dy/Layout::lattSize()[1]+p[2]*dz/Layout::lattSize()[2]+p[3]*dt/Layout::lattSize()[3]);
+        AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+        }
+        }
+        }
+        }
+
+        A_x1=A_x;
+        for(int dx = -1; dx*dx < rmax*rmax; dx--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 0);
+        for(int dy = -1; dx*dx+dy*dy < rmax*rmax; dy--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 1);
+        for(int dz = -1; dx*dx+dy*dy+dz*dz < rmax*rmax; dz--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 2);
+        for(int dt = 1; dx*dx+dy*dy+dz*dz+dt*dt < rmax*rmax; dt++)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, FORWARD, 3);
+        p_dot_x=twopi*(p[0]*dx/Layout::lattSize()[0]+p[1]*dy/Layout::lattSize()[1]+p[2]*dz/Layout::lattSize()[2]+p[3]*dt/Layout::lattSize()[3]);
+        AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+        }
+        }
+        }
+        }
+
+        A_x1=A_x;
+        for(int dx = -1; dx*dx < rmax*rmax; dx--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 0);
+        for(int dy = -1; dx*dx+dy*dy < rmax*rmax; dy--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 1);
+        for(int dz = -1; dx*dx+dy*dy+dz*dz < rmax*rmax; dz--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 2);
+        for(int dt = -1; dx*dx+dy*dy+dz*dz+dt*dt < rmax*rmax; dt--)
+        {
+        Amid=A_x1;
+        A_x1=shift(Amid, BACKWARD, 3);
+        p_dot_x=twopi*(p[0]*dx/Layout::lattSize()[0]+p[1]*dy/Layout::lattSize()[1]+p[2]*dz/Layout::lattSize()[2]+p[3]*dt/Layout::lattSize()[3]);
+        AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
+        }
+        }
+        }
+        }
+*/	
+    }
+
+
+    ColorMatrix  Ap(int Mu, LatticeReal p_dot_x, multi1d<int> p, LatticeColorMatrix A_x)
+    {
+        Complex G_2pt;
+        ColorMatrix  A_p, A_mp;
+         
+	clock_t t1, t2, t3, t4;
+	
+	LatticeComplex phase;
+        t1=clock();	
+	LatticeReal p_shift=0.5;	
+	p_dot_x += LatticeReal(p_shift)*twopi*Real(p[Mu])/Layout::lattSize()[Mu];
+        phase=cmplx(-sin(p_dot_x),-cos(p_dot_x));
+        A_p=sum(phase*A_x);
+
+        t3=clock();
+        QDPIO::cout <<"t_Ap   "<< t3-t1 <<std::endl;
+
+
+	LatticeColorMatrix AA, A_x1, Amid;
+
+        A_x1=A_x;
+        t1=clock();
+
+	t3=clock();
+	for(int i=1; i<100; i++)
+	{
+        Amid=A_x1;
+	}
+	t4=clock();
+        QDPIO::cout <<"Amid   "<< t4-t3 <<std::endl;
+
+	t3=clock();
+	for(int i=1; i<100; i++)
+        {
+        A_x1=shift(Amid, FORWARD, Mu);
+        }
+	t4=clock();
+	QDPIO::cout <<"t_shift   "<< t4-t3 <<std::endl;
+
+	t3=clock();
+	for(int i=1; i<100; i++)
+        {
+	AA=A_x1*sum(A_x)*A_x;
+        }
+        t4=clock();
+        QDPIO::cout <<"t_AA1   "<< t4-t3 <<std::endl;
+
+        t3=clock();
+	for(int i=1; i<100; i++)
+        {
+        AA=A_x1*(sum(A_x)*A_x);
+        }
+        t4=clock();
+        QDPIO::cout <<"t_AA1   "<< t4-t3 <<std::endl;
+
+
+        t3=clock();
+	for(int i=1; i<100; i++)
+        {
+        AA=sum(A_x)*A_x;
+        }
+        t4=clock();
+        QDPIO::cout <<"t_AA3   "<< t4-t3 <<std::endl;
+
+        t3=clock();
+	for(int i=1; i<100; i++)
+        {
+        AA=LatticeColorMatrix(sum(A_x))*A_x;
+        }
+        t4=clock();
+        QDPIO::cout <<"t_AA3   "<< t4-t3 <<std::endl;
+
+        t3=clock();
+        for(int i=1; i<100; i++)
+        {
+	AA=A_x1*A_x;
+        }
+        t4=clock();
+        QDPIO::cout <<"t_AA2   "<< t4-t3 <<std::endl;
+	QDPIO::cout <<"t_AA2   "<< (t4-t3)*100000 <<std::endl;
+
+        t2=clock();
+        QDPIO::cout <<"t_sumx   "<< t2-t1 <<std::endl;
+
+	return A_p;
+    }
+
     Complex G2pt(int Mu, int Nu, LatticeReal p_dot_x, LatticeReal p_dot_x1, LatticeColorMatrix u, LatticeColorMatrix u1,  multi1d<int> p, multi1d<int> xsrc)
     {
 	Complex G_2pt;
 	//xsrc[mu]?????
-        LatticeColorMatrix A_x, umid, ux=u, ux1=u1;
+        LatticeColorMatrix AA, A_x, A_x1, Amid, umid, ux=u, ux1=u1;
 	ColorMatrix  A_p, A_mp;
         //A_x=1/(2*cmplx(0,1)*g0)*((u[tau]-adj(u[tau])-1/Nc*trace(u[tau]-adj(u))));
  
@@ -530,6 +1145,15 @@ namespace Chroma
 
 	t3=clock();
         QDPIO::cout <<"t_FT   "<< t3-t1 <<std::endl;
+
+	A_x1=A_x;
+	t1=clock();
+	Amid=A_x1;
+	A_x1=shift(Amid, FORWARD, Mu);
+	AA=A_x1*sum(A_x)*A_x;
+	t2=clock();
+	QDPIO::cout <<"t_sumx   "<< t2-t1 <<std::endl;
+
 
 	QDPIO::cout <<"A_p   "<< Mu << "  "<< Nu << "  "<< trace(A_p) <<std::endl;
 	QDPIO::cout <<"A_mp   "<< Mu << "  "<< Nu << "  "<< trace(A_mp) <<std::endl;
@@ -1121,9 +1745,9 @@ namespace Chroma
 
 	int pmax=params.pmax;
 	QDPIO::cout <<"pmax   "<< pmax <<std::endl;
-	multi5d<LatticeReal> p_dot_x;
-	p_dot_x.resize(Nd,2*pmax+1,2*pmax+1,2*pmax+1,2*pmax+1);
-	for(int mu = 0; mu < Nd; mu++)
+	multi4d<LatticeReal> p_dot_x;
+	p_dot_x.resize(2*pmax+1,2*pmax+1,2*pmax+1,2*pmax+1);
+	//for(int mu = 0; mu < Nd; mu++)
 	for(int i = -pmax; i < pmax+1; i++)
 	for(int j = -pmax; j < pmax+1; j++)
 	for(int k = -pmax; k < pmax+1; k++)
@@ -1138,7 +1762,7 @@ namespace Chroma
                 xsrc[2]=0;
                 xsrc[3]=0;
         	t1=clock();
-		p_dot_x[mu][i+pmax][j+pmax][k+pmax][l+pmax]=pdotx(mu, p, xsrc, my_coord);
+		p_dot_x[i+pmax][j+pmax][k+pmax][l+pmax]=pdotx(p, xsrc, my_coord);
 		t2=clock();
 		QDPIO::cout <<"p_dot_x_p   "<< (t2-t1) <<std::endl;
 		QDPIO::cout <<"p_dot_x_p   "<< (double)(t2-t1)/ CLOCKS_PER_SEC <<std::endl;
@@ -1146,6 +1770,38 @@ namespace Chroma
 	
 	multi1d<LatticeColorMatrix> Op;	
 	Op = fun_Operator(0, 0, F, u[0]);
+
+
+        double g0=1.0;
+	//LatticeColorMatrix A_x;
+        multi5d<ColorMatrix> A_p;
+        A_p.resize(Nd,2*pmax+1,2*pmax+1,2*pmax+1,2*pmax+1);
+
+	for(int mu = 0; mu < Nd; mu++)
+	{
+        A_x=1.0/(2*g0)*((u[mu]-adj(u[mu])-1/Nc*trace(u[mu]-adj(u[mu]))));
+        for(int i = -pmax; i < pmax+1; i++)
+                for(int j = -pmax; j < pmax+1; j++)
+                        for(int k = -pmax; k < pmax+1; k++)
+                        for(int l = -pmax; l < pmax+1; l++)
+                        {
+                                p[0]=i;
+                                p[1]=j;
+                                p[2]=k;
+                                p[3]=l;
+                                xsrc[0]=0;
+                                xsrc[1]=0;
+                                xsrc[2]=0;
+                                xsrc[3]=0;
+                                t1=clock();
+				A_p[mu][i+pmax][j+pmax][k+pmax][l+pmax]=Ap(mu, p_dot_x[i+pmax][j+pmax][k+pmax][l+pmax], p, A_x);
+	                        t2=clock();
+                                QDPIO::cout <<"time_A_p   "<< (t2-t1) <<std::endl;
+                                QDPIO::cout <<"time_A_p   "<< (double)(t2-t1)/ CLOCKS_PER_SEC <<std::endl;
+			
+			}
+	}
+
 	for(int i = -pmax; i < pmax+1; i++)
         	for(int j = -pmax; j < pmax+1; j++)
 			for(int k = -pmax; k < pmax+1; k++)
@@ -1163,7 +1819,8 @@ namespace Chroma
 				for(int nu = 0; nu < Nd; nu++)
 				{
 					t1=clock();
-					GL2pt=G2pt(mu, nu, p_dot_x[mu][i+pmax][j+pmax][k+pmax][l+pmax], p_dot_x[nu][i+pmax][j+pmax][k+pmax][l+pmax], u[mu], u[nu], p, xsrc);
+					GL2pt=trace(A_p[mu][i+pmax][j+pmax][k+pmax][l+pmax]*A_p[nu][-i+pmax][-j+pmax][-k+pmax][-l+pmax]);
+					//GL2pt=G2pt(mu, nu, p_dot_x[mu][i+pmax][j+pmax][k+pmax][l+pmax], p_dot_x[nu][i+pmax][j+pmax][k+pmax][l+pmax], u[mu], u[nu], p, xsrc);
 					QDPIO::cout <<"G2pt   "<< mu << "  " << nu << "  "<< i << "  " << j <<"  "<< k <<"  "<< l <<"  "<< real(GL2pt) << "  " << imag(GL2pt) <<std::endl;
                                        	t2=clock();
                 			QDPIO::cout <<"time_G2pt   "<< (t2-t1) <<std::endl;
@@ -1171,12 +1828,18 @@ namespace Chroma
 
 					//GL2pt=G2pt(mu, nu, p_dot_x[mu][i+pmax][j+pmax][k+pmax][l+pmax], p_dot_x[nu][i+pmax][j+pmax][k+pmax][l+pmax], u[mu], u[nu], p, xsrc);
 					//QDPIO::cout <<"G2pt   "<< mu << "  " << nu << "  "<< i << "  " << j <<"  "<< k <<"  "<< l <<"  "<< real(GL2pt) << "  " << imag(GL2pt) <<std::endl;
-					//GL3pt=G3pt(mu, nu, u[mu], u[nu], Op[0], p, 13, 13);
+					//t1=clock();
+					//GL3pt=G3ptnew(mu, nu, u[mu], u[nu], p_dot_x[i+pmax][j+pmax][k+pmax][l+pmax], Op[0], p, 64, 64);
+                                        //t2=clock();
+                                        //QDPIO::cout <<"time_G3pt   "<< (t2-t1) <<std::endl;
+                                        //QDPIO::cout <<"time_G3pt   "<< (double)(t2-t1)/ CLOCKS_PER_SEC <<std::endl;
 					//QDPIO::cout <<"G3pt   "<< mu << "  " << nu << "  "<< i << "  " << j <<"  "<< k <<"  "<< l <<"  "<< real(GL3pt) << "  " << imag(GL3pt) <<std::endl;
 
 				}
 
 			}
+
+
 	//loop over direction 0,1,2
 	for(int dir = 0; dir < 3; dir++)
         {
