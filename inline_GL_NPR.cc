@@ -488,7 +488,7 @@ namespace Chroma
     }
 
 
-    ColorMatrix  G2ptnew(int Mu, multi1d<int> p, LatticeColorMatrix A_x, int rmax)
+    Complex G2ptnew(int Mu, multi1d<int> p, LatticeColorMatrix A_x, int rmax)
     {
         Complex G_2pt;
         ColorMatrix  A_p, A_mp;
@@ -1019,7 +1019,7 @@ namespace Chroma
 
 	LatticeColorMatrix AA, A_x1, Amid;
 
-        A_x1=A_x;
+/*        A_x1=A_x;
         t1=clock();
 
 	t3=clock();
@@ -1079,7 +1079,7 @@ namespace Chroma
         t4=clock();
         QDPIO::cout <<"t_AA2   "<< t4-t3 <<std::endl;
 	QDPIO::cout <<"t_AA2   "<< (t4-t3)*100000 <<std::endl;
-
+*/
         t2=clock();
         QDPIO::cout <<"t_sumx   "<< t2-t1 <<std::endl;
 
@@ -1816,8 +1816,10 @@ namespace Chroma
 				xsrc[2]=0;
 				xsrc[3]=0;
 				for(int mu = 0; mu < Nd; mu++)
-				for(int nu = 0; nu < Nd; nu++)
+				//for(int nu = 0; nu < Nd; nu++)
 				{
+					int nu;
+					nu=mu;
 					t1=clock();
 					GL2pt=trace(A_p[mu][i+pmax][j+pmax][k+pmax][l+pmax]*A_p[nu][-i+pmax][-j+pmax][-k+pmax][-l+pmax]);
 					//GL2pt=G2pt(mu, nu, p_dot_x[mu][i+pmax][j+pmax][k+pmax][l+pmax], p_dot_x[nu][i+pmax][j+pmax][k+pmax][l+pmax], u[mu], u[nu], p, xsrc);
@@ -1825,6 +1827,37 @@ namespace Chroma
                                        	t2=clock();
                 			QDPIO::cout <<"time_G2pt   "<< (t2-t1) <<std::endl;
                 			QDPIO::cout <<"time_G2pt   "<< (double)(t2-t1)/ CLOCKS_PER_SEC <<std::endl;
+
+
+					A_x=1.0/(2*g0)*((u[mu]-adj(u[mu])-1/Nc*trace(u[mu]-adj(u[mu]))));
+
+					for(int r = 1; r < 16; r++)
+					{
+                                        t1=clock();
+                                        GL2pt=G2ptnew(mu, p, A_x, r);
+                                        QDPIO::cout <<"G2ptr   "  << r << "  " << mu << "  " << nu << "  "<< i << "  " << j <<"  "<< k <<"  "<< l <<"  "<< real(GL2pt) << "  " << imag(GL2pt) <<std::endl;
+                                        t2=clock();
+                                        QDPIO::cout <<"time_G2ptr   " << r << "  "<< (double)(t2-t1)/ CLOCKS_PER_SEC <<std::endl;
+					}
+/*
+                                        t1=clock();
+                                        GL2pt=G2ptnew(mu, p, A_x, 1);
+                                        QDPIO::cout <<"G2ptr1   "<< mu << "  " << nu << "  "<< i << "  " << j <<"  "<< k <<"  "<< l <<"  "<< real(GL2pt) << "  " << imag(GL2pt) <<std::endl;
+                                        t2=clock();
+                                        QDPIO::cout <<"time_G2ptr1   "<< (double)(t2-t1)/ CLOCKS_PER_SEC <<std::endl;
+
+                                        t1=clock();
+                                        GL2pt=G2ptnew(mu, p, A_x, 2);
+                                        QDPIO::cout <<"G2ptr2   "<< mu << "  " << nu << "  "<< i << "  " << j <<"  "<< k <<"  "<< l <<"  "<< real(GL2pt) << "  " << imag(GL2pt) <<std::endl;
+                                        t2=clock();
+                                        QDPIO::cout <<"time_G2ptr2   "<< (double)(t2-t1)/ CLOCKS_PER_SEC <<std::endl;
+
+                                        t1=clock();
+                                        GL2pt=G2ptnew(mu, p, A_x, 3);
+                                        QDPIO::cout <<"G2ptr3   "<< mu << "  " << nu << "  "<< i << "  " << j <<"  "<< k <<"  "<< l <<"  "<< real(GL2pt) << "  " << imag(GL2pt) <<std::endl;
+                                        t2=clock();
+                                        QDPIO::cout <<"time_G2ptr3   "<< (double)(t2-t1)/ CLOCKS_PER_SEC <<std::endl;
+*/
 
 					//GL2pt=G2pt(mu, nu, p_dot_x[mu][i+pmax][j+pmax][k+pmax][l+pmax], p_dot_x[nu][i+pmax][j+pmax][k+pmax][l+pmax], u[mu], u[nu], p, xsrc);
 					//QDPIO::cout <<"G2pt   "<< mu << "  " << nu << "  "<< i << "  " << j <<"  "<< k <<"  "<< l <<"  "<< real(GL2pt) << "  " << imag(GL2pt) <<std::endl;
