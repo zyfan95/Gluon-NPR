@@ -506,26 +506,42 @@ namespace Chroma
                 A_x1=shift(Amid, BACKWARD, 0);
                 A_x1=shift(Amid, BACKWARD, 1);
                 A_x1=shift(Amid, BACKWARD, 2);
-                A_x1=shift(Amid, BACKWARD, 3);
+                //A_x1=shift(Amid, BACKWARD, 3);
         }
 
-        for(int dx = -rmax+1; dx*dx < rmax*rmax; dx++)
+        //for(int dt = 0; dt*dt < rmax*rmax; dt++)
+        for(int dt = 0; dt*dt < 33*33; dt++)
+	{
+                Amid=A_x1;
+                A_x1=shift(Amid, BACKWARD, 3);
+	}
+
+        //for(int dx = -rmax+1; dx*dx < rmax*rmax; dx++)
+        //for(int dx = -rmax+1; dx*dx < rmax*rmax; dx++)
+	for(int dx = -rmax+1; dx < rmax-1; dx++)
         {
         Amid=A_x1;
         A_x1=shift(Amid, FORWARD, 0);
-        for(int dy = -rmax+1; dx*dx+dy*dy < rmax*rmax; dy++)
+        //for(int dy = -rmax+1; dx*dx+dy*dy < rmax*rmax; dy++)
+        //for(int dy = -rmax+1; dy*dy < rmax*rmax; dy++)
+        for(int dy = -rmax+1; dy < rmax-1; dy++)
         {
         Amid=A_x1;
         A_x1=shift(Amid, FORWARD, 1);
-        for(int dz = -rmax+1; dx*dx+dy*dy+dz*dz < rmax*rmax; dz++)
+        //for(int dz = -rmax+1; dx*dx+dy*dy+dz*dz < rmax*rmax; dz++)
+        //for(int dz = -rmax+1; dz*dz < rmax*rmax; dz++)
+        for(int dz = -rmax+1; dz < rmax-1; dz++)
         {
         Amid=A_x1;
         A_x1=shift(Amid, FORWARD, 2);
-        for(int dt = -rmax+1; dx*dx+dy*dy+dz*dz+dt*dt < rmax*rmax; dt++)
+        //for(int dt = -rmax+1; dx*dx+dy*dy+dz*dz+dt*dt < rmax*rmax; dt++)
+        //for(int dt = -rmax+1; dt < rmax; dt++)
+        for(int dt = -33+1; dt < 32; dt++)
+	//for(int dt = -rmax+1; dt*dt < rmax*rmax; dt++)
         {
         Amid=A_x1;
         A_x1=shift(Amid, FORWARD, 3);
-        p_dot_x=twopi*(p[0]*dx/Layout::lattSize()[0]+p[1]*dy/Layout::lattSize()[1]+p[2]*dz/Layout::lattSize()[2]+p[3]*dt/Layout::lattSize()[3]);
+        p_dot_x=twopi*(1.0*p[0]*dx/Layout::lattSize()[0]+1.0*p[1]*dy/Layout::lattSize()[1]+1.0*p[2]*dz/Layout::lattSize()[2]+1.0*p[3]*dt/Layout::lattSize()[3]);
         AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x*A_x1);
         }
         }
@@ -1807,10 +1823,10 @@ namespace Chroma
 			for(int k = -pmax; k < pmax+1; k++)
 			for(int l = -pmax; l < pmax+1; l++)
 			{
-				p[0]=i;
-				p[1]=j;
-				p[2]=k;
-				p[3]=l;
+				p[0]=1;
+				p[1]=0;
+				p[2]=-2;
+				p[3]=3;
 				xsrc[0]=0;
 				xsrc[1]=0;
 				xsrc[2]=0;
@@ -1831,7 +1847,7 @@ namespace Chroma
 
 					A_x=1.0/(2*g0)*((u[mu]-adj(u[mu])-1/Nc*trace(u[mu]-adj(u[mu]))));
 
-					for(int r = 1; r < 20; r++)
+					for(int r = 13; r < 14; r++)
 					{
                                         t1=clock();
                                         GL2pt=G2ptnew(mu, p, A_x, r);
