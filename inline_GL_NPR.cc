@@ -542,7 +542,8 @@ namespace Chroma
         Amid=A_x1;
         A_x1=shift(Amid, FORWARD, 3);
         p_dot_x=twopi*(1.0*p[0]*dx/Layout::lattSize()[0]+1.0*p[1]*dy/Layout::lattSize()[1]+1.0*p[2]*dz/Layout::lattSize()[2]+1.0*p[3]*dt/Layout::lattSize()[3]);
-        AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x*A_x1);
+        //AA=AA+cmplx(cos(-p_dot_x),sin(-p_dot_x))*trace(A_x*A_x1);
+        AA=AA+cmplx(cos(p_dot_x),sin(p_dot_x))*trace(A_x1*A_x);
         }
         }
         }
