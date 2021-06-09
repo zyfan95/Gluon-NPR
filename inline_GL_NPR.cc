@@ -1075,7 +1075,7 @@ namespace Chroma
 				QDPIO::cout <<"O2JZ   "<< mu << "  "<< i << "  "<< j << "  "<< sum(Op[6]).elem().elem().elem(i,j).real() << "  "<< sum(Op[6]).elem().elem().elem(i,j).imag() <<std::endl;
 			}
 */
-
+/*
 		A_x=Ax(mu,u[mu]);
 		multi1d<int> tCoords;
         	tCoords.resize(Nd);
@@ -1098,7 +1098,7 @@ namespace Chroma
 			}
         		QDPIO::cout <<"A_x   "<< mu << "  "<< x << "  " << y <<"  "<< z <<"  "<< t <<"  "<< ax <<"  "<< axi <<std::endl;
 		}
-	
+*/	
 	}
 
 	//Double G_2pt(u, multi2d<Double> p, multi2d<Double> xsrc)
@@ -1109,10 +1109,11 @@ namespace Chroma
 	xsrc.resize(Nd);
 	p=0;
 	xsrc=0;
-	Complex GL2pt, GL3pt;
+	Complex GL2pt, G2pt_norm, p2, Zg, GL3pt;
 	
 	clock_t t1, t2;
 	const Real twopi = 6.283185307179586476925286;
+	const Real a = 0.1207;
 	
         multi1d<LatticeInteger> my_coord(Nd);
         for (int mu=0; mu < Nd; ++mu)
