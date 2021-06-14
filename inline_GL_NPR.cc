@@ -1119,6 +1119,9 @@ namespace Chroma
         for (int mu=0; mu < Nd; ++mu)
           my_coord[mu] = Layout::latticeCoordinate(mu);
 
+
+	SftMom phases(params.max_mom2, false,  4); // 4D fourier transform
+
 	int pmax=params.pmax;
 	QDPIO::cout <<"pmax   "<< pmax <<std::endl;
 	multi5d<LatticeReal> p_dot_x;
@@ -1142,6 +1145,7 @@ namespace Chroma
 		t2=clock();
 		QDPIO::cout <<"p_dot_x_p   "<< (t2-t1) <<std::endl;
 		QDPIO::cout <<"p_dot_x_p   "<< (double)(t2-t1)/ CLOCKS_PER_SEC <<std::endl;
+		QDPIO::cout << i << j << k << l <<std::endl;
 	}
 	
 	multi1d<LatticeColorMatrix> Op;	
