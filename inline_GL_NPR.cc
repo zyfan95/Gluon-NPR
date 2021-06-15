@@ -1122,7 +1122,45 @@ namespace Chroma
 
 	SftMom phases(params.max_mom2, false,  4); // 4D fourier transform
 
-	int pmax=params.pmax;
+	std::vector<int> mom_serial(phases.numMom());
+
+	//int pmax=params.pmax;
+	
+	multi2d<ColorMatrix> Ap(phases.numMom(),Nd);
+	multi4d<double> Dp((phases.numMom()+1)/2,Nd ,Nd,2);
+	Complex shift_phase;
+	for (int m=0; m < phases.numMom(); m++)
+	{
+		//mom_serial[m]=(50-phases.numToMom(m)[0])+(50-phases.numToMom(m)[1])*100+(50-phases.numToMom(m)[2]) *10000+(50-phases.numToMom(m)[3])*1000000;
+		p[0]=phases.numToMom(m)[0];
+		p[1]=phases.numToMom(m)[1];
+		p[2]=phases.numToMom(m)[2];
+		p[3]=phases.numToMom(m)[3];	
+		for(int mu=0; mu<Nd; ++mu){
+			multi1d<Real> p_dot_x(Nd);
+			p_dot_x[mu]=phases.numToMom(m)[mu]*twopi/Layout::lattSize()[mu]/2.0;
+			//shift_phase=cmplx(cos(p_dot_x),sin(p_dot_x));
+			//Ap[m][mu] = shift_phase*sum(phases[m]*ai[mu]);
+		}
+
+                                for(int mu = 0; mu < Nd; mu++)
+                                for(int nu = 0; nu < Nd; nu++)
+                                {
+
+	                                GL2pt=G2pt(mu, nu, p_dot_x[mu], p_dot_x[nu], u[mu], u[nu], p, xsrc);
+                                        G2pt_norm=GL2pt/Layout::lattSize()[0]/Layout::lattSize()[1]/Layout::lattSize()[2]/Layout::lattSize()[3];
+                                        p2=twopi*twopi*(0.197/a)*(0.197/a)*((i*i/Layout::lattSize()[0]/Layout::lattSize()[0])+(j*j/Layout::lattSize()[1]/Layout::lattSize()[1])+(k*k/Layout::lattSize()[2]/Layout::lattSize()[2])+(l*l/Layout::lattSize()[3]/Layout::lattSize()[3]));
+                                        if(mu==nu)
+                                                Zg=p2*G2pt_norm/4/(1-p[mu]*p[nu]/(p[0]*p[0]+p[1]*p[1]+p[2]*p[2]+p[3]*p[3]));
+                                        else
+                                                Zg=p2*G2pt_norm/4/(-p[mu]*p[nu]/(p[0]*p[0]+p[1]*p[1]+p[2]*p[2]+p[3]*p[3]));
+                                        QDPIO::cout <<"G2pt   "<< mu << "  " << nu << "  "<< i << "  " << j <<"  "<< k <<"  "<< l <<"  "<< real(GL2pt) << "  " << imag(GL2pt) <<std::endl;
+                                        QDPIO::cout <<"G2pt   "<< mu << "  " << nu << "  "<< p2 <<"  "<< real(GL2pt) << "  " << imag(GL2pt) <<std::endl;
+                                        QDPIO::cout <<"Norm_G2   "<< mu << "  " << nu << "  "<< p2 <<"  "<< real(G2pt_norm) << "  " << imag(G2pt_norm) <<std::endl;
+                                        QDPIO::cout <<"Zg   "<< mu << "  " << nu << "  "<< p2 <<"  "<< real(Zg) << "  " << imag(Zg) <<std::endl;
+				}
+	}
+/*
 	QDPIO::cout <<"pmax   "<< pmax <<std::endl;
 	multi5d<LatticeReal> p_dot_x;
 	p_dot_x.resize(Nd,2*pmax+1,2*pmax+1,2*pmax+1,2*pmax+1);
@@ -1190,6 +1228,7 @@ namespace Chroma
 				}
 
 			}
+*/
 	//loop over direction 0,1,2
 	for(int dir = 0; dir < 3; dir++)
         {
