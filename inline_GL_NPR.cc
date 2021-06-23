@@ -1177,9 +1177,10 @@ namespace Chroma
                                 		Dp[m][mu][nu][1]+=(Ap[m][mu].elem().elem().elem(i,j).imag()*Ap[phases.numMom()-m-1][nu].elem().elem().elem(j,i).real()+Ap[m][mu].elem().elem().elem(i,j).real()*Ap[phases.numMom()-m-1][nu].elem().elem().elem(j,i).imag());
                                 		
 					}
+				 GL2pt=cmplx(Dp[m][mu][nu][0],Dp[m][mu][nu][1]);
 				 G2pt_norm=cmplx(Dp[m][mu][nu][0],Dp[m][mu][nu][1])/Layout::lattSize()[0]/Layout::lattSize()[1]/Layout::lattSize()[2]/Layout::lattSize()[3];
-                                 p2=twopi*twopi*(0.197/a)*(0.197/a)*((1.0*p[0]*p[0]/Layout::lattSize()[0]/Layout::lattSize()[0])+(1.0*p[1]*p[1]/Layout::lattSize()[1]/Layout::lattSize()[1]/1.0)+(1.0*p[2]*p[2]/Layout::lattSize()[2]/Layout::lattSize()[2]/1.0)+(1.0*p[3]*p[3]/Layout::lattSize()[3]/Layout::lattSize()[3]/1.0));
-                                 if(mu==nu)
+                                 p2=twopi*twopi*(0.197/a)*(0.197/a)*((1.0*p[0]*p[0]/Layout::lattSize()[0]/Layout::lattSize()[0])+(1.0*p[1]*p[1]/Layout::lattSize()[1]/Layout::lattSize()[1]/1.0)+(1.0*p[2]*p[2]/Layout::lattSize()[2]/Layout::lattSize()[2]/1.0)+(1.0*p[3]*p[3]/Layout::lattSize()[3]/Layout::lattSize()[3]/1.0)); 
+				if(mu==nu)
                                  	Zg=p2*G2pt_norm/4/(1-p[mu]*p[nu]/(p[0]*p[0]+p[1]*p[1]+p[2]*p[2]+p[3]*p[3]));
                                  else
                                         Zg=p2*G2pt_norm/4/(-p[mu]*p[nu]/(p[0]*p[0]+p[1]*p[1]+p[2]*p[2]+p[3]*p[3]));
